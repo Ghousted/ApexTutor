@@ -12,6 +12,7 @@ export default function SessionsSidebar({
   onSelectSession,
   onNewChat,
   refreshKey,
+  filterByInstructorId,
 }: {
   uid: string | null;
   currentSessionId: string | null;
@@ -19,6 +20,11 @@ export default function SessionsSidebar({
   onNewChat: () => void;
   /** Bump this number to force a reload of the sessions list. */
   refreshKey?: number;
+  /**
+   * When set, only show sessions belonging to this instructor. Sessions
+   * without an instructorId (e.g., legacy back-filled chats) are hidden.
+   */
+  filterByInstructorId?: string;
 }) {
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +48,11 @@ export default function SessionsSidebar({
   useEffect(() => {
     reload();
   }, [reload, refreshKey]);
+
+  // Apply per-instructor filter so each professor has their own history.
+  const visibleSessions = filterByInstructorId
+    ? sessions.filter((s) => s.instructorId === filterByInstructorId)
+    : sessions;
 
   const handleDelete = async (sid: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,15 +81,15 @@ export default function SessionsSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {loading && sessions.length === 0 && (
+        {loading && visibleSessions.length === 0 && (
           <div className="flex items-center justify-center py-8 text-slate-400">
             <Loader2 className="w-4 h-4 animate-spin" />
           </div>
         )}
 
-        {!loading && sessions.length === 0 && uid && (
+        {!loading && visibleSessions.length === 0 && uid && (
           <p className="text-center text-xs text-slate-400 px-4 py-6">
-            Your chats will appear here.
+            No chats with this professor yet.
           </p>
         )}
 
@@ -89,7 +100,7 @@ export default function SessionsSidebar({
         )}
 
         <ul className="flex flex-col gap-1">
-          {sessions.map((s) => {
+          {visibleSessions.map((s) => {
             const active = s.id === currentSessionId;
             const inst = getInstructor(s.instructorId);
             return (

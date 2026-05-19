@@ -497,8 +497,8 @@ export default function ChatInterface({
           <SessionsSidebar
             uid={user.uid}
             currentSessionId={currentSessionId}
-            onSelectSession={(sid) => {
-              handleSelectSession(sid);
+            onSelectSession={(sid, sinstr) => {
+              handleSelectSession(sid, sinstr);
               setShowSessionsSidebar(false);
             }}
             onNewChat={() => {
@@ -506,6 +506,7 @@ export default function ChatInterface({
               setShowSessionsSidebar(false);
             }}
             refreshKey={sessionsRefreshKey}
+            filterByInstructorId={instructor.id}
           />
         </div>
       )}
