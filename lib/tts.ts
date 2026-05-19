@@ -11,13 +11,9 @@ export type TtsLang = "English" | "Taglish" | "Tagalog";
 //   am_* = American Male English
 //   bf_* / bm_* = British
 //   jf_* / jm_* = Japanese (avoid for English content)
-// af_heart is the documented default and most well-tested.
-// Other good calm tutor voices to try:
-//   af_bella   — warm, gentle female
-//   af_sarah   — clear, articulate female
-//   bf_emma    — calm British female
-//   am_michael — calm professional male
-const KOKORO_VOICE = "af_heart";
+// af_heart is the documented default. Individual instructors override this
+// at call time by passing voiceId to synthesizeStream / synthesize.
+const KOKORO_DEFAULT_VOICE = "af_heart";
 const KOKORO_MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
 
 interface KokoroTTSLike {
@@ -96,7 +92,8 @@ async function loadMmsPipeline(model: string): Promise<MmsPipeLike> {
 /** Synthesize text to PCM audio (non-streaming). Throws on failure. */
 export async function synthesize(
   text: string,
-  lang: TtsLang
+  lang: TtsLang,
+  voiceId: string = KOKORO_DEFAULT_VOICE
 ): Promise<{ audio: Float32Array; samplingRate: number }> {
   if (lang === "Tagalog") {
     const pipe = await loadMmsPipeline("Xenova/mms-tts-tgl");
@@ -104,7 +101,7 @@ export async function synthesize(
     return { audio: out.audio, samplingRate: out.sampling_rate };
   }
   const tts = await loadKokoro();
-  const result = await tts.generate(text, { voice: KOKORO_VOICE });
+  const result = await tts.generate(text, { voice: voiceId });
   return { audio: result.audio, samplingRate: result.sampling_rate };
 }
 
@@ -130,7 +127,8 @@ function splitSentences(text: string): string[] {
  */
 export async function* synthesizeStream(
   text: string,
-  lang: TtsLang
+  lang: TtsLang,
+  voiceId: string = KOKORO_DEFAULT_VOICE
 ): AsyncGenerator<{ audio: Float32Array; samplingRate: number }> {
   if (lang === "Tagalog") {
     const pipe = await loadMmsPipeline("Xenova/mms-tts-tgl");
@@ -142,7 +140,7 @@ export async function* synthesizeStream(
   const sentences = splitSentences(text);
   for (const sentence of sentences) {
     try {
-      const result = await tts.generate(sentence, { voice: KOKORO_VOICE });
+      const result = await tts.generate(sentence, { voice: voiceId });
       if (result.audio && result.audio.length > 0) {
         yield {
           audio: result.audio,
@@ -153,7 +151,6 @@ export async function* synthesizeStream(
       }
     } catch (e) {
       console.error(`[TTS] failed to synthesize sentence: "${sentence}"`, e);
-      // Skip this sentence and continue with the rest.
     }
   }
 }

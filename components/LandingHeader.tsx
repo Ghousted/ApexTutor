@@ -14,14 +14,25 @@ export default function LandingHeader() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [redirectAfterSignIn, setRedirectAfterSignIn] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
 
+  // When the user signs in from this header, take them to the instructor
+  // picker (the natural next step in the onboarding flow).
+  useEffect(() => {
+    if (user && redirectAfterSignIn) {
+      setRedirectAfterSignIn(false);
+      router.push("/instructors");
+    }
+  }, [user, redirectAfterSignIn, router]);
+
   const openAuth = (mode: "signin" | "signup") => {
     setAuthMode(mode);
+    setRedirectAfterSignIn(true);
     setAuthModalOpen(true);
   };
 
@@ -46,11 +57,11 @@ export default function LandingHeader() {
         {user ? (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/chat")}
+              onClick={() => router.push("/instructors")}
               className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-ink hover:text-indigo-600 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              Go to chat
+              Start a lesson
             </button>
             <div className="relative">
               <button
@@ -87,12 +98,12 @@ export default function LandingHeader() {
                     <button
                       onClick={() => {
                         setMenuOpen(false);
-                        router.push("/chat");
+                        router.push("/instructors");
                       }}
                       className="sm:hidden w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Go to chat
+                      Start a lesson
                     </button>
                     <button
                       onClick={handleSignOut}

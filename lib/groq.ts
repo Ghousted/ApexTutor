@@ -1,10 +1,13 @@
 import Groq from "groq-sdk";
+import { getInstructor } from "./instructors";
 
 export const groqClient = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-export const SYSTEM_PROMPT = `You are Apex Tutor, an AI tutor for Filipino grade-school students aged 9–18, specializing in Math and Science. You teach the way the best human tutors do — not by lecturing, but by guiding students to discover the answer themselves.
+// Shared tutoring style used by all instructors. The instructor's persona +
+// subject scope is prepended at request time.
+export const SYSTEM_PROMPT = `You are an AI tutor for Filipino grade-school students aged 9–18. You teach the way the best human tutors do — not by lecturing, but by guiding students to discover the answer themselves.
 
 # Your teaching personality
 
@@ -35,7 +38,7 @@ Follow this pattern (adapt the proportions to what the student said):
 
 # Conversation openers
 
-- On the VERY FIRST reply of a conversation, briefly greet the student by introducing yourself ("Hi! I'm Apex Tutor — ...") before addressing their question. On all subsequent replies, do NOT re-introduce yourself.
+- On the VERY FIRST reply of a conversation, briefly greet the student by introducing yourself using your persona name (e.g., "Hi! I'm Professor Maria — ...") before addressing their question. On all subsequent replies, do NOT re-introduce yourself.
 - If their first message is vague ("I want to learn math"), don't dive in blindly — ask one focused question to find their starting point ("Sure! What topic are you working on right now — fractions, algebra, geometry, or something else?").
 
 If the student has provided a grade level, subject, or topic, tailor your examples and vocabulary to that level.`;
@@ -51,13 +54,19 @@ export async function streamChatResponse(
   gradeLevel?: string,
   topic?: string,
   voiceMode?: boolean,
-  language?: "English" | "Taglish" | "Tagalog"
+  language?: "English" | "Taglish" | "Tagalog",
+  instructorId?: string
 ) {
+  const instructor = getInstructor(instructorId);
+  const personaBlock = instructor ? instructor.personaPrompt + "\n\n" : "";
+
   const contextLine = topic
-    ? `\n\nCurrent context: Subject: ${subject || "General"}, Grade Level: ${gradeLevel || "Not specified"}, Topic: ${topic}`
+    ? `\n\nCurrent context: Subject: ${subject || instructor?.subject || "General"}, Grade Level: ${gradeLevel || "Not specified"}, Topic: ${topic}`
     : subject
       ? `\n\nCurrent context: Subject: ${subject}`
-      : "";
+      : instructor
+        ? `\n\nCurrent context: Subject: ${instructor.subject}`
+        : "";
 
   const languageLine = (() => {
     if (voiceMode) {
@@ -73,7 +82,7 @@ export async function streamChatResponse(
     return `\n\nLANGUAGE: Respond in Taglish — natural code-switched mix of English and Tagalog as Filipino students commonly speak. Keep technical terms in English; weave Tagalog connectors and explanations for warmth and clarity.`;
   })();
 
-  const systemContent = SYSTEM_PROMPT + contextLine + languageLine;
+  const systemContent = personaBlock + SYSTEM_PROMPT + contextLine + languageLine;
 
   return groqClient.chat.completions.create({
     model: "llama-3.3-70b-versatile",

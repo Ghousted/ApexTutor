@@ -27,11 +27,12 @@ export default function HeroSection() {
     return () => unsub();
   }, []);
 
-  // After successful sign-in, if there's a pending query, carry it to /chat.
+  // After successful sign-in, if there's a pending query, carry it to the
+  // instructor selector (user picks a professor → chat starts with the query).
   useEffect(() => {
     if (user && pendingQuery && !navigatedRef.current) {
       navigatedRef.current = true;
-      router.push(`/chat?q=${encodeURIComponent(pendingQuery)}`);
+      router.push(`/instructors?q=${encodeURIComponent(pendingQuery)}`);
     }
   }, [user, pendingQuery, router]);
 
@@ -43,7 +44,7 @@ export default function HeroSection() {
       setAuthOpen(true);
       return;
     }
-    router.push(`/chat?q=${encodeURIComponent(query)}`);
+    router.push(`/instructors?q=${encodeURIComponent(query)}`);
   };
 
   const handleAuthClose = () => {

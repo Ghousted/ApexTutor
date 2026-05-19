@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { MessageSquarePlus, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listSessions, deleteSession, type SessionDoc } from "@/lib/sessions";
+import { getInstructor } from "@/lib/instructors";
 
 export default function SessionsSidebar({
   uid,
@@ -14,7 +15,7 @@ export default function SessionsSidebar({
 }: {
   uid: string | null;
   currentSessionId: string | null;
-  onSelectSession: (sessionId: string) => void;
+  onSelectSession: (sessionId: string, instructorId?: string) => void;
   onNewChat: () => void;
   /** Bump this number to force a reload of the sessions list. */
   refreshKey?: number;
@@ -90,26 +91,37 @@ export default function SessionsSidebar({
         <ul className="flex flex-col gap-1">
           {sessions.map((s) => {
             const active = s.id === currentSessionId;
+            const inst = getInstructor(s.instructorId);
             return (
               <li key={s.id} className="relative group">
                 <button
-                  onClick={() => onSelectSession(s.id)}
+                  onClick={() => onSelectSession(s.id, s.instructorId)}
                   className={cn(
-                    "w-full text-left pl-3 pr-9 py-2.5 rounded-lg flex flex-col transition-colors",
+                    "w-full text-left pl-3 pr-9 py-2.5 rounded-lg flex gap-2 transition-colors",
                     active
                       ? "bg-indigo-100 text-indigo-900"
                       : "text-slate-700 hover:bg-slate-100"
                   )}
                 >
-                  <span className="text-sm truncate block">{s.title}</span>
-                  <span
-                    className={cn(
-                      "text-[11px] mt-0.5 block",
-                      active ? "text-indigo-600" : "text-slate-400"
-                    )}
-                  >
-                    {relativeTime(s.updatedAt)} · {s.messageCount} msg
-                    {s.messageCount === 1 ? "" : "s"}
+                  {inst && (
+                    <span
+                      className="w-1 self-stretch rounded-full shrink-0"
+                      style={{ background: inst.accentColor }}
+                      aria-hidden
+                    />
+                  )}
+                  <span className="flex-1 flex flex-col min-w-0">
+                    <span className="text-sm truncate">{s.title}</span>
+                    <span
+                      className={cn(
+                        "text-[11px] mt-0.5 truncate",
+                        active ? "text-indigo-600" : "text-slate-400"
+                      )}
+                    >
+                      {inst ? `${inst.shortName} · ` : ""}
+                      {relativeTime(s.updatedAt)} · {s.messageCount} msg
+                      {s.messageCount === 1 ? "" : "s"}
+                    </span>
                   </span>
                 </button>
                 <button

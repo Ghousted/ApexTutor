@@ -6,20 +6,37 @@ export const runtime = "edge";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, subject, gradeLevel, topic, voiceMode, language } = body as {
+    const {
+      messages,
+      subject,
+      gradeLevel,
+      topic,
+      voiceMode,
+      language,
+      instructorId,
+    } = body as {
       messages: ChatMessage[];
       subject?: string;
       gradeLevel?: string;
       topic?: string;
       voiceMode?: boolean;
       language?: "English" | "Taglish" | "Tagalog";
+      instructorId?: string;
     };
 
     if (!messages || !Array.isArray(messages)) {
       return new Response("Invalid messages", { status: 400 });
     }
 
-    const stream = await streamChatResponse(messages, subject, gradeLevel, topic, voiceMode, language);
+    const stream = await streamChatResponse(
+      messages,
+      subject,
+      gradeLevel,
+      topic,
+      voiceMode,
+      language,
+      instructorId
+    );
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({

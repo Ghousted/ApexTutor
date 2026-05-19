@@ -32,6 +32,7 @@ export interface SessionDoc {
   messageCount: number;
   language?: string;
   subject?: string;
+  instructorId?: string;
 }
 
 export interface StoredMessage {
@@ -58,7 +59,12 @@ function deriveTitle(firstUserMessage: string): string {
 /** Create a new chat session. Returns the new session ID. */
 export async function createSession(
   uid: string,
-  opts: { title?: string; language?: string; subject?: string } = {}
+  opts: {
+    title?: string;
+    language?: string;
+    subject?: string;
+    instructorId?: string;
+  } = {}
 ): Promise<string> {
   const ref = await addDoc(sessionsCol(uid), {
     title: opts.title || "New chat",
@@ -67,6 +73,7 @@ export async function createSession(
     messageCount: 0,
     language: opts.language ?? null,
     subject: opts.subject ?? null,
+    instructorId: opts.instructorId ?? null,
   });
   return ref.id;
 }
@@ -88,11 +95,16 @@ export async function saveMessage(
   });
 }
 
-/** Update session metadata (title, language, subject). */
+/** Update session metadata (title, language, subject, instructorId). */
 export async function updateSessionMeta(
   uid: string,
   sessionId: string,
-  patch: Partial<{ title: string; language: string; subject: string }>
+  patch: Partial<{
+    title: string;
+    language: string;
+    subject: string;
+    instructorId: string;
+  }>
 ) {
   await setDoc(
     doc(db, "users", uid, "sessions", sessionId),
@@ -128,6 +140,7 @@ export async function listSessions(
       messageCount: data.messageCount ?? 0,
       language: data.language ?? undefined,
       subject: data.subject ?? undefined,
+      instructorId: data.instructorId ?? undefined,
     };
   });
 }

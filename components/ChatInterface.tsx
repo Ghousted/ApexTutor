@@ -14,6 +14,7 @@ import {
   ArrowUp,
   LogOut,
   Menu,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -30,6 +31,7 @@ import Logo from "./Logo";
 import AuthModal from "./AuthModal";
 import SessionsSidebar from "./SessionsSidebar";
 import { synthesizeStream, pcmToWavBlob, isModelLoaded, type TtsLang } from "@/lib/tts";
+import { getInstructor, defaultInstructor, type Instructor } from "@/lib/instructors";
 
 interface Message {
   id: string;
@@ -69,8 +71,21 @@ type Language = (typeof LANGUAGES)[number];
 let __msgIdCounter = 0;
 const newId = () => `m_${Date.now()}_${++__msgIdCounter}`;
 
-export default function ChatInterface({ initialQuery }: { initialQuery?: string }) {
+export default function ChatInterface({
+  initialQuery,
+  instructorId,
+  initialSessionId,
+}: {
+  initialQuery?: string;
+  instructorId?: string;
+  initialSessionId?: string;
+}) {
   const router = useRouter();
+  // Resolve the active instructor. Falls back to Maria (Math) if the URL had
+  // no instructor param or an unknown id — keeps the landing-page free-chat
+  // flow working without breaking.
+  const instructor: Instructor =
+    getInstructor(instructorId) ?? defaultInstructor();
   const [messages, setMessages] = useState<Message[]>(() =>
     initialQuery
       ? []
@@ -78,16 +93,8 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
           {
             id: "welcome-1",
             role: "assistant",
-            content:
-              "Hi! I am Apex Tutor and I am here to be a guide on your learning journey!",
+            content: `Hi! I'm ${instructor.name}, your ${instructor.subject} tutor. What would you like to learn today?`,
             timestamp: new Date(),
-          },
-          {
-            id: "welcome-2",
-            role: "assistant",
-            content: "What subject do you need help with?",
-            timestamp: new Date(),
-            picker: "subject",
           },
         ]
   );
@@ -188,7 +195,8 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
             sessionIdForSave = await createSession(user.uid, {
               title: text.slice(0, 60) || "New chat",
               language,
-              subject: subject || undefined,
+              subject: instructor.subject,
+              instructorId: instructor.id,
             });
             setCurrentSessionId(sessionIdForSave);
             currentSessionIdRef.current = sessionIdForSave;
@@ -214,9 +222,10 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: history,
-            subject: subject || undefined,
+            subject: instructor.subject,
             voiceMode,
             language,
+            instructorId: instructor.id,
           }),
         });
 
@@ -244,10 +253,10 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
               role: "assistant",
               content: fullText,
             });
-            // Update session metadata (language/subject) if changed since creation.
             await updateSessionMeta(user.uid, sessionIdForSave, {
               language,
-              ...(subject ? { subject } : {}),
+              subject: instructor.subject,
+              instructorId: instructor.id,
             });
             setSessionsRefreshKey((k) => k + 1);
           } catch (e) {
@@ -280,10 +289,10 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
       isAuthenticated,
       messageCount,
       messages,
-      subject,
       voiceMode,
       language,
       user,
+      instructor,
     ]
   );
 
@@ -318,6 +327,16 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // If we arrived with ?session=ID (e.g., cross-instructor session jump),
+  // load that session as soon as auth is known.
+  const initialSessionLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!user || !initialSessionId || initialSessionLoadedRef.current) return;
+    initialSessionLoadedRef.current = true;
+    handleSelectSession(initialSessionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, initialSessionId]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.forEach((file) => {
@@ -339,16 +358,8 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
       {
         id: "welcome-1",
         role: "assistant",
-        content:
-          "Hi! I am Apex Tutor and I am here to be a guide on your learning journey!",
+        content: `Hi! I'm ${instructor.name}, your ${instructor.subject} tutor. What would you like to learn today?`,
         timestamp: new Date(),
-      },
-      {
-        id: "welcome-2",
-        role: "assistant",
-        content: "What subject do you need help with?",
-        timestamp: new Date(),
-        picker: "subject",
       },
     ]);
     setInput("");
@@ -358,12 +369,25 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
     setCurrentSessionId(null);
     currentSessionIdRef.current = null;
     firstUserMessageSentRef.current = false;
-  }, []);
+  }, [instructor]);
 
   const handleSelectSession = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string, sessionInstructorId?: string) => {
       if (!user) return;
       if (sessionId === currentSessionIdRef.current) return;
+
+      // If the session was started with a different instructor, route to the
+      // chat page for that instructor — this remounts the chat with the right
+      // persona/voice and the session loads inside that context.
+      if (
+        sessionInstructorId &&
+        sessionInstructorId !== instructor.id &&
+        getInstructor(sessionInstructorId)
+      ) {
+        router.push(`/chat?instructor=${sessionInstructorId}&session=${sessionId}`);
+        return;
+      }
+
       setLoadingSessionMessages(true);
       setReplySuggestions([]);
       try {
@@ -398,7 +422,7 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
         setLoadingSessionMessages(false);
       }
     },
-    [user]
+    [user, instructor, router]
   );
 
   const handleSignOut = useCallback(async () => {
@@ -490,7 +514,7 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="px-4 md:px-10 py-5 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             {user && (
               <button
                 onClick={() => setShowSessionsSidebar((v) => !v)}
@@ -502,10 +526,31 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
             )}
             <button
               onClick={() => router.push("/")}
-              className="hover:opacity-80 transition-opacity"
+              className="hover:opacity-80 transition-opacity shrink-0"
               aria-label="Apex Tutor home"
             >
               <Logo size="md" />
+            </button>
+
+            {/* Active instructor pill */}
+            <button
+              onClick={() => router.push("/instructors")}
+              className="hidden md:flex items-center gap-2 ml-2 pl-1.5 pr-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 transition-colors group"
+              title="Switch professor"
+            >
+              <span
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                style={{ background: instructor.accentColor }}
+              >
+                {instructor.avatarInitial}
+              </span>
+              <span className="text-sm font-medium text-ink">
+                {instructor.name}
+              </span>
+              <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">
+                · {instructor.subject}
+              </span>
+              <ArrowLeftRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-colors ml-1" />
             </button>
           </div>
 
@@ -602,6 +647,7 @@ export default function ChatInterface({ initialQuery }: { initialQuery?: string 
                   onSubjectPick={handleSubjectPick}
                   subject={subject}
                   ttsLang={language}
+                  ttsVoiceId={instructor.voiceId}
                 />
               ))}
               {isLoading && messages[messages.length - 1]?.content === "" && (
@@ -795,12 +841,14 @@ function MessageBubble({
   onSubjectPick,
   subject,
   ttsLang,
+  ttsVoiceId,
 }: {
   message: Message;
   isStreaming?: boolean;
   onSubjectPick?: (s: string) => void;
   subject?: string;
   ttsLang?: TtsLang;
+  ttsVoiceId?: string;
 }) {
   const isUser = message.role === "user";
   const [audioState, setAudioState] = useState<"idle" | "loading" | "playing">("idle");
@@ -895,7 +943,7 @@ function MessageBubble({
     };
 
     try {
-      for await (const chunk of synthesizeStream(cleaned, lang)) {
+      for await (const chunk of synthesizeStream(cleaned, lang, ttsVoiceId)) {
         if (cancelRef.current) {
           console.log("[TTS] cancelled, breaking stream loop");
           break;
