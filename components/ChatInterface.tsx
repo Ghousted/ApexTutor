@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   ArrowLeftRight,
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -33,6 +34,17 @@ import SessionsSidebar from "./SessionsSidebar";
 import { synthesizeStream, pcmToWavBlob, isModelLoaded, type TtsLang } from "@/lib/tts";
 import { getInstructor, defaultInstructor, type Instructor } from "@/lib/instructors";
 import MessageContent from "./MessageContent";
+import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
+import { compressImageToDataUrl } from "@/lib/imageCompression";
+
+// Map our app's language picker to BCP-47 codes that SpeechRecognition expects.
+// Taglish maps to en-PH (Philippine English) — closest practical match since
+// no browser ships a dedicated Taglish recognizer.
+const SPEECH_LANG: Record<Language, string> = {
+  English: "en-US",
+  Taglish: "en-PH",
+  Tagalog: "fil-PH",
+};
 
 interface Message {
   id: string;
@@ -40,6 +52,8 @@ interface Message {
   content: string;
   timestamp: Date;
   attachments?: Attachment[];
+  /** Base64 data URLs of images shown inline. Ephemeral — not persisted. */
+  imageDataUrls?: string[];
   // Inline interactive picker rendered inside a bot bubble.
   picker?: "subject";
 }
@@ -47,7 +61,10 @@ interface Message {
 interface Attachment {
   name: string;
   type: "image" | "pdf";
+  /** Object URL for thumbnail display in the preview chip. */
   url: string;
+  /** Compressed base64 data URL — sent to Groq vision model. Image only. */
+  dataUrl?: string;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -110,6 +127,31 @@ export default function ChatInterface({
   const [authModalReason, setAuthModalReason] = useState<string>("");
   const [voiceMode] = useState(false);
   const [language, setLanguage] = useState<Language>("English");
+
+  // Speech-to-text. Hook handles permission, support detection, lifecycle.
+  const stt = useSpeechRecognition({ lang: SPEECH_LANG[language] });
+
+  // When STT produces final (committed) text, append it to the current input.
+  // Effect runs whenever a new chunk lands in stt.transcript.
+  const lastAppendedRef = useRef("");
+  useEffect(() => {
+    if (!stt.transcript || stt.transcript === lastAppendedRef.current) return;
+    const newlyFinalized = stt.transcript
+      .slice(lastAppendedRef.current.length)
+      .trim();
+    if (!newlyFinalized) return;
+    setInput((prev) => (prev ? prev + " " + newlyFinalized : newlyFinalized));
+    lastAppendedRef.current = stt.transcript;
+  }, [stt.transcript]);
+
+  const handleMicClick = () => {
+    if (stt.isListening) {
+      stt.stop();
+    } else {
+      lastAppendedRef.current = "";
+      stt.start();
+    }
+  };
   const [replySuggestions, setReplySuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [showSessionsSidebar, setShowSessionsSidebar] = useState(false);
@@ -166,12 +208,19 @@ export default function ChatInterface({
         return;
       }
 
+      // Collect compressed image data URLs to send to the vision model.
+      // Images marked but still compressing (no dataUrl yet) are skipped.
+      const imageDataUrls = attachments
+        .filter((a) => a.type === "image" && a.dataUrl)
+        .map((a) => a.dataUrl as string);
+
       const userMessage: Message = {
         id: newId(),
         role: "user",
         content: text,
         timestamp: new Date(),
         attachments: attachments.length > 0 ? [...attachments] : undefined,
+        imageDataUrls: imageDataUrls.length > 0 ? imageDataUrls : undefined,
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -189,12 +238,21 @@ export default function ChatInterface({
 
       // Persist the user message to Firestore (fire-and-forget). Lazily create
       // the session on the user's very first message in this thread.
+      // Per Option A (zero-storage), image data is NOT persisted — we save a
+      // placeholder so the chat history makes sense without storing the photo.
       let sessionIdForSave = currentSessionIdRef.current;
+      const persistedContent =
+        imageDataUrls.length > 0
+          ? text
+            ? `${text}\n\n_[${imageDataUrls.length} image${imageDataUrls.length === 1 ? "" : "s"} attached]_`
+            : `_[${imageDataUrls.length} image${imageDataUrls.length === 1 ? "" : "s"} attached]_`
+          : text;
       if (user) {
         try {
           if (!sessionIdForSave) {
             sessionIdForSave = await createSession(user.uid, {
-              title: text.slice(0, 60) || "New chat",
+              title:
+                (text || "Image question").slice(0, 60) || "New chat",
               language,
               subject: instructor.subject,
               instructorId: instructor.id,
@@ -205,7 +263,7 @@ export default function ChatInterface({
           }
           await saveMessage(user.uid, sessionIdForSave, {
             role: "user",
-            content: text,
+            content: persistedContent,
           });
         } catch (e) {
           console.error("Failed to save user message:", e);
@@ -227,6 +285,7 @@ export default function ChatInterface({
             voiceMode,
             language,
             instructorId: instructor.id,
+            images: imageDataUrls.length > 0 ? imageDataUrls : undefined,
           }),
         });
 
@@ -338,14 +397,32 @@ export default function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, initialSessionId]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    files.forEach((file) => {
-      const type = file.type.startsWith("image/") ? "image" : "pdf";
-      const url = URL.createObjectURL(file);
-      setAttachments((prev) => [...prev, { name: file.name, type, url }]);
-    });
     e.target.value = "";
+    for (const file of files) {
+      const isImage = file.type.startsWith("image/");
+      const url = URL.createObjectURL(file);
+      const placeholder: Attachment = {
+        name: file.name,
+        type: isImage ? "image" : "pdf",
+        url,
+      };
+      setAttachments((prev) => [...prev, placeholder]);
+
+      if (isImage) {
+        // Compress in the background so the chip appears instantly,
+        // then patch in the dataUrl once it's ready.
+        try {
+          const dataUrl = await compressImageToDataUrl(file);
+          setAttachments((prev) =>
+            prev.map((a) => (a.url === url ? { ...a, dataUrl } : a))
+          );
+        } catch (err) {
+          console.error("Image compression failed:", err);
+        }
+      }
+    }
   };
 
   const handleSubjectPick = (chosen: string) => {
@@ -702,18 +779,29 @@ export default function ChatInterface({
               {attachments.map((a, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs"
                 >
                   {a.type === "image" ? (
-                    <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={a.url}
+                      alt=""
+                      className="w-8 h-8 rounded object-cover border border-slate-200"
+                    />
                   ) : (
                     <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
                   )}
-                  {a.name}
+                  <span className="max-w-[160px] truncate">{a.name}</span>
+                  {a.type === "image" && !a.dataUrl && (
+                    <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                  )}
                   <button
-                    onClick={() =>
-                      setAttachments((prev) => prev.filter((_, j) => j !== i))
-                    }
+                    onClick={() => {
+                      const removed = attachments[i];
+                      if (removed) URL.revokeObjectURL(removed.url);
+                      setAttachments((prev) => prev.filter((_, j) => j !== i));
+                    }}
+                    aria-label="Remove attachment"
                   >
                     <X className="w-3 h-3 text-slate-400 hover:text-slate-700" />
                   </button>
@@ -740,29 +828,72 @@ export default function ChatInterface({
               <Plus className="w-4 h-4 text-white" />
             </button>
 
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                if (e.target.value && replySuggestions.length > 0) {
-                  setReplySuggestions([]);
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  if (e.target.value && replySuggestions.length > 0) {
+                    setReplySuggestions([]);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (stt.isListening) stt.stop();
+                    handleSend();
+                  }
+                }}
+                placeholder={
+                  stt.isListening ? "Listening — speak now..." : "How can Apex Tutor help?"
                 }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="How can Apex Tutor help?"
-              rows={1}
-              className="flex-1 bg-transparent text-ink placeholder-slate-400 outline-none resize-none text-sm leading-relaxed max-h-32 overflow-y-auto py-2"
-              style={{ minHeight: "24px" }}
-            />
+                rows={1}
+                className="w-full bg-transparent text-ink placeholder-slate-400 outline-none resize-none text-sm leading-relaxed max-h-32 overflow-y-auto py-2"
+                style={{ minHeight: "24px" }}
+              />
+              {/* Interim (uncommitted) transcript shown live in italic gray
+                  underneath the textarea so the user sees what the mic is
+                  hearing before it gets appended to their input. */}
+              {stt.isListening && stt.interimTranscript && (
+                <p className="absolute -bottom-4 left-0 text-[11px] text-slate-400 italic truncate max-w-full pointer-events-none">
+                  {stt.interimTranscript}
+                </p>
+              )}
+            </div>
+
+            {/* Mic button — hidden on browsers without SpeechRecognition. */}
+            {stt.supported && (
+              <button
+                type="button"
+                onClick={handleMicClick}
+                className={cn(
+                  "w-9 h-9 shrink-0 rounded-full flex items-center justify-center transition-colors relative",
+                  stt.isListening
+                    ? "bg-rose-500 text-white hover:bg-rose-600"
+                    : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"
+                )}
+                title={stt.isListening ? "Stop listening" : "Click to speak"}
+                aria-label={stt.isListening ? "Stop listening" : "Start voice input"}
+              >
+                {stt.isListening ? (
+                  <>
+                    <Mic className="w-4 h-4" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  </>
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+            )}
 
             <button
-              onClick={() => handleSend()}
+              type="button"
+              onClick={() => {
+                if (stt.isListening) stt.stop();
+                handleSend();
+              }}
               disabled={isLoading || (!input.trim() && attachments.length === 0)}
               className="w-9 h-9 shrink-0 text-slate-400 hover:text-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
@@ -773,6 +904,18 @@ export default function ChatInterface({
               )}
             </button>
           </div>
+
+          {/* Mic permission error surfacing — small inline notice. */}
+          {stt.error === "not-allowed" && (
+            <p className="text-center text-rose-500 text-xs mt-2">
+              Microphone access denied. Enable it in your browser settings to use voice input.
+            </p>
+          )}
+          {stt.error === "audio-capture" && (
+            <p className="text-center text-rose-500 text-xs mt-2">
+              No microphone detected. Plug one in and try again.
+            </p>
+          )}
 
           {!isAuthenticated && messageCount > 0 && (
             <p className="text-center text-slate-400 text-xs mt-3">
@@ -1034,17 +1177,35 @@ function MessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end group">
-        <div className="bg-slate-100 text-slate-800 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm max-w-[80%]">
-          {message.attachments?.map((a, i) => (
-            <div key={i} className="mb-1 flex items-center gap-1.5 text-xs opacity-70">
-              {a.type === "image" ? (
-                <ImageIcon className="w-3 h-3" />
-              ) : (
-                <Paperclip className="w-3 h-3" />
-              )}
-              {a.name}
+        <div className="bg-slate-100 text-slate-800 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm max-w-[80%] flex flex-col gap-2">
+          {/* Inline image preview — ephemeral, only present during the
+              current session (per Option A: images aren't persisted). */}
+          {message.imageDataUrls && message.imageDataUrls.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {message.imageDataUrls.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Attached image ${i + 1}`}
+                  className="rounded-lg max-w-[200px] max-h-[200px] object-cover border border-slate-200"
+                />
+              ))}
             </div>
-          ))}
+          )}
+          {/* For persisted sessions (re-loaded from Firestore) we won't have
+              imageDataUrls. Fall back to showing the file-name chip. */}
+          {!message.imageDataUrls &&
+            message.attachments?.map((a, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs opacity-70">
+                {a.type === "image" ? (
+                  <ImageIcon className="w-3 h-3" />
+                ) : (
+                  <Paperclip className="w-3 h-3" />
+                )}
+                {a.name}
+              </div>
+            ))}
           {message.content && <MessageContent text={message.content} />}
         </div>
       </div>

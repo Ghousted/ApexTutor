@@ -49,6 +49,12 @@ export interface ChatMessage {
   content: string;
 }
 
+// Models. Text-only conversations use the fast 70B. When images are attached
+// to the LATEST user message, we switch to a vision-capable Llama 4 variant.
+// Past turns in history stay as plain text — only the current image is sent.
+const TEXT_MODEL = "llama-3.3-70b-versatile";
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
 export async function streamChatResponse(
   messages: ChatMessage[],
   subject?: string,
@@ -56,7 +62,13 @@ export async function streamChatResponse(
   topic?: string,
   voiceMode?: boolean,
   language?: "English" | "Taglish" | "Tagalog",
-  instructorId?: string
+  instructorId?: string,
+  /**
+   * Base64 data URLs of images attached to the LATEST user message only.
+   * When present, we switch to a vision-capable model and reformat the last
+   * user turn using OpenAI's multimodal content-array shape.
+   */
+  images?: string[]
 ) {
   const instructor = getInstructor(instructorId);
   const personaBlock = instructor ? instructor.personaPrompt + "\n\n" : "";
@@ -85,12 +97,42 @@ export async function streamChatResponse(
 
   const systemContent = personaBlock + SYSTEM_PROMPT + contextLine + languageLine;
 
+  const hasImages = Array.isArray(images) && images.length > 0;
+
+  // Build the messages array. Convert the LAST user turn to multimodal content
+  // when images are attached. Earlier turns stay as plain text strings.
+  type ContentPart =
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } };
+  type OutMessage = {
+    role: "system" | "user" | "assistant";
+    content: string | ContentPart[];
+  };
+
+  const out: OutMessage[] = [{ role: "system", content: systemContent }];
+
+  if (hasImages && messages.length > 0) {
+    // Pass everything but the final message as plain text.
+    for (let i = 0; i < messages.length - 1; i++) {
+      out.push(messages[i]);
+    }
+    // Reformat the final user message as multimodal.
+    const last = messages[messages.length - 1];
+    const parts: ContentPart[] = [];
+    if (last.content) parts.push({ type: "text", text: last.content });
+    for (const dataUrl of images!) {
+      parts.push({ type: "image_url", image_url: { url: dataUrl } });
+    }
+    out.push({ role: last.role, content: parts });
+  } else {
+    for (const m of messages) out.push(m);
+  }
+
   return groqClient.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [
-      { role: "system", content: systemContent },
-      ...messages,
-    ],
+    model: hasImages ? VISION_MODEL : TEXT_MODEL,
+    // The SDK's type expects `string` content; multimodal arrays are
+    // accepted by the underlying API but TS doesn't know that yet.
+    messages: out as Parameters<typeof groqClient.chat.completions.create>[0]["messages"],
     stream: true,
     max_tokens: 1024,
     temperature: 0.7,

@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
       voiceMode,
       language,
       instructorId,
+      images,
     } = body as {
       messages: ChatMessage[];
       subject?: string;
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
       voiceMode?: boolean;
       language?: "English" | "Taglish" | "Tagalog";
       instructorId?: string;
+      images?: string[];
     };
 
     if (!messages || !Array.isArray(messages)) {
@@ -35,7 +37,8 @@ export async function POST(req: NextRequest) {
       topic,
       voiceMode,
       language,
-      instructorId
+      instructorId,
+      images
     );
 
     const encoder = new TextEncoder();
