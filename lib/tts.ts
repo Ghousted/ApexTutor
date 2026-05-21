@@ -108,13 +108,67 @@ export async function synthesize(
 /**
  * Split text into sentences for chunked synthesis. Keeps the terminating
  * punctuation with each sentence so Kokoro's prosody stays natural.
+ *
+ * Edge cases handled:
+ *   - Honorifics ("Dr.", "Mr.", "Mrs.") don't end a sentence
+ *   - Decimal numbers ("3.14") don't end a sentence
+ *   - Very long sentences (>250 chars) get sub-split at commas to keep each
+ *     synthesis call under Kokoro's comfortable input size
  */
+const HONORIFICS = ["dr", "mr", "mrs", "ms", "st", "jr", "sr", "vs", "etc"];
+
 function splitSentences(text: string): string[] {
-  // Match runs of non-terminator characters followed by ., !, or ? — plus a
-  // trailing fragment with no terminator (final clause without punctuation).
   const matches = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
-  if (!matches) return [text];
-  return matches.map((s) => s.trim()).filter((s) => s.length > 0);
+  if (!matches) return [text.trim()];
+
+  // First pass: re-merge fragments where a "." was part of a honorific or a
+  // decimal, not a real sentence break.
+  const merged: string[] = [];
+  for (const raw of matches) {
+    const piece = raw.trim();
+    if (!piece) continue;
+    if (merged.length === 0) {
+      merged.push(piece);
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    const prevWords = prev.split(/\s+/);
+    const lastWord = prevWords[prevWords.length - 1]?.toLowerCase().replace(/\.$/, "");
+    const startsWithDigit = /^\s*\d/.test(piece);
+    const prevEndsWithDigit = /\d\.$/.test(prev);
+    if (
+      (lastWord && HONORIFICS.includes(lastWord)) ||
+      (prevEndsWithDigit && startsWithDigit)
+    ) {
+      merged[merged.length - 1] = prev + " " + piece;
+    } else {
+      merged.push(piece);
+    }
+  }
+
+  // Second pass: sub-split very long sentences at commas.
+  const result: string[] = [];
+  const MAX_LEN = 250;
+  for (const s of merged) {
+    if (s.length <= MAX_LEN) {
+      result.push(s);
+      continue;
+    }
+    const parts = s.split(/,\s*/);
+    let buf = "";
+    for (const p of parts) {
+      const next = buf ? buf + ", " + p : p;
+      if (next.length > MAX_LEN && buf) {
+        result.push(buf);
+        buf = p;
+      } else {
+        buf = next;
+      }
+    }
+    if (buf) result.push(buf);
+  }
+
+  return result.filter((s) => s.length > 0);
 }
 
 /**

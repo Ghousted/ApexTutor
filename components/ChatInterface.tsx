@@ -32,6 +32,7 @@ import AuthModal from "./AuthModal";
 import SessionsSidebar from "./SessionsSidebar";
 import { synthesizeStream, pcmToWavBlob, isModelLoaded, type TtsLang } from "@/lib/tts";
 import { getInstructor, defaultInstructor, type Instructor } from "@/lib/instructors";
+import MessageContent from "./MessageContent";
 
 interface Message {
   id: string;
@@ -914,32 +915,65 @@ function MessageBubble({
     let chunkIdx = 0;
     let generationDone = false;
     let started = false;
+    // Tracks whether the playback loop is actively cycling. When the queue
+    // drains mid-stream (sentence audio shorter than next sentence's
+    // synthesis time), we need to know whether a new chunk should kick off
+    // playback or just sit in the queue waiting.
+    let isPlaying = false;
 
-    // Chain playback: when one element finishes, kick off the next from the queue.
+    // Chain playback: when one element finishes, kick off the next from the
+    // queue. If the queue runs dry while generation is still in flight, we
+    // mark isPlaying=false and the next chunk arriving will re-prime playback.
     const playNext = () => {
       if (cancelRef.current) return;
       const next = audioQueueRef.current.shift();
       if (!next) {
-        // Queue empty — only switch to idle if generator is done feeding chunks.
+        isPlaying = false;
         if (generationDone) {
           currentAudioRef.current = null;
           setAudioState("idle");
         }
+        // Otherwise: idle and waiting — for-await loop will re-prime us.
         return;
       }
+      isPlaying = true;
       currentAudioRef.current = next;
       next.playbackRate = PLAYBACK_RATE;
-      next.onended = () => {
-        console.log(`[TTS] chunk played, queue size now ${audioQueueRef.current.length}`);
+
+      // Safety watchdog: HTMLAudioElement.onended doesn't always fire reliably
+      // (especially on Safari for very short clips). Force-advance after the
+      // expected duration + 500ms buffer if onended hasn't fired by then.
+      let advanced = false;
+      const advance = () => {
+        if (advanced) return;
+        advanced = true;
         playNext();
+      };
+      const onceLoaded = () => {
+        const expectedMs = ((next.duration || 0) * 1000) / PLAYBACK_RATE + 500;
+        if (expectedMs > 0 && isFinite(expectedMs)) {
+          setTimeout(advance, expectedMs);
+        }
+      };
+      if (next.readyState >= 1) {
+        onceLoaded();
+      } else {
+        next.addEventListener("loadedmetadata", onceLoaded, { once: true });
+      }
+
+      next.onended = () => {
+        console.log(
+          `[TTS] chunk played, queue size now ${audioQueueRef.current.length}`
+        );
+        advance();
       };
       next.onerror = (e) => {
         console.error("[TTS] audio playback error:", e);
-        playNext();
+        advance();
       };
       next.play().catch((err) => {
         console.error("[TTS] play() rejected:", err);
-        playNext();
+        advance();
       });
     };
 
@@ -963,12 +997,16 @@ function MessageBubble({
         audioQueueRef.current.push(el);
 
         console.log(
-          `[TTS] chunk ${chunkIdx} ready (${chunk.audio.length} samples, ~${(chunk.audio.length / chunk.samplingRate).toFixed(2)}s), queue size ${audioQueueRef.current.length}`
+          `[TTS] chunk ${chunkIdx} ready (${chunk.audio.length} samples, ~${(chunk.audio.length / chunk.samplingRate).toFixed(2)}s), queue size ${audioQueueRef.current.length}, isPlaying=${isPlaying}`
         );
 
         if (!started) {
           started = true;
           setAudioState("playing");
+          playNext();
+        } else if (!isPlaying) {
+          // Queue drained while we were still generating — restart playback
+          // with the new chunk. This is the fix for "sometimes stops".
           playNext();
         }
         chunkIdx++;
@@ -979,6 +1017,9 @@ function MessageBubble({
 
       if (chunkIdx === 0) {
         console.warn("[TTS] stream yielded zero chunks");
+        setAudioState("idle");
+      } else if (!isPlaying && audioQueueRef.current.length === 0) {
+        // Edge case: generation finished after the player went idle.
         setAudioState("idle");
       }
     } catch (e) {
@@ -1004,7 +1045,7 @@ function MessageBubble({
               {a.name}
             </div>
           ))}
-          {message.content}
+          {message.content && <MessageContent text={message.content} />}
         </div>
       </div>
     );
@@ -1013,9 +1054,7 @@ function MessageBubble({
   return (
     <div className="flex group">
       <div className="bg-[#fef0e1] text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 text-sm max-w-[85%] flex flex-col gap-2">
-        {message.content && (
-          <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-        )}
+        {message.content && <MessageContent text={message.content} />}
 
         {message.picker === "subject" && onSubjectPick && (
           <div className="flex flex-col gap-2 mt-1">
