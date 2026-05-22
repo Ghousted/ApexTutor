@@ -32,6 +32,7 @@ import Logo from "./Logo";
 import AuthModal from "./AuthModal";
 import SessionsSidebar from "./SessionsSidebar";
 import { synthesizeStream, pcmToWavBlob, isModelLoaded, type TtsLang } from "@/lib/tts";
+import { latexToSpeech } from "@/lib/latexToSpeech";
 import { getInstructor, defaultInstructor, type Instructor } from "@/lib/instructors";
 import MessageContent from "./MessageContent";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
@@ -333,7 +334,8 @@ export default function ChatInterface({
             m.id === assistantId
               ? {
                   ...m,
-                  content: "Sorry, may problema sa aking sagot. Please try again!",
+                  content:
+                    "Hmm, I lost my train of thought — could you ask that again?",
                 }
               : m
           )
@@ -1044,11 +1046,9 @@ function MessageBubble({
     if (!message.content) return;
 
     const lang: TtsLang = ttsLang ?? "English";
-    const cleaned = message.content
-      .replace(/[*_`#>]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 800);
+    // latexToSpeech converts $x^2$ → "x squared", strips markdown, normalizes
+    // whitespace. Otherwise Kokoro reads raw LaTeX literally ("dollar x caret").
+    const cleaned = latexToSpeech(message.content).slice(0, 800);
 
     setAudioState("loading");
     cancelRef.current = false;
