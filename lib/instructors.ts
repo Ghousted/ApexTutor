@@ -18,6 +18,11 @@ export interface Instructor {
   bgGradient: string;  // CSS gradient string for the card background
   voiceId: string;     // Kokoro voice id for English TTS
   ttsLangDefault?: TtsLang; // unused for now — kept for future per-instructor language
+  /**
+   * Whether this instructor is available on the free tier. Free users see
+   * paid instructors locked with an "Upgrade" overlay on the picker.
+   */
+  freeTier: boolean;
   /** Subject-specific persona + scope rules. Prepended to the shared tutoring system prompt. */
   personaPrompt: string;
 }
@@ -33,6 +38,7 @@ export const INSTRUCTORS: Instructor[] = [
     accentColor: "#6366F1", // indigo-500
     bgGradient: "linear-gradient(135deg, #eef2ff 0%, #c7d2fe 100%)",
     voiceId: "af_heart",
+    freeTier: true,
     personaPrompt: `# Your identity
 
 You are **Professor Maria**, a Math specialist for Filipino grade-school and high-school students. You love numbers, patterns, and showing students that math is everywhere — from jeepney fares to basketball scoring averages.
@@ -60,6 +66,7 @@ Never refuse to answer — just keep your off-topic answer short and always poin
     accentColor: "#10B981", // emerald-500
     bgGradient: "linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%)",
     voiceId: "am_michael",
+    freeTier: false,
     personaPrompt: `# Your identity
 
 You are **Professor Marco**, a Science specialist for Filipino grade-school and high-school students. You're endlessly curious about how things work — from the water cycle to chemical bonds to why halo-halo melts in a specific order.

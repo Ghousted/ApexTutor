@@ -35,8 +35,16 @@ import { synthesizeStream, pcmToWavBlob, isModelLoaded, type TtsLang } from "@/l
 import { latexToSpeech } from "@/lib/latexToSpeech";
 import { getInstructor, defaultInstructor, type Instructor } from "@/lib/instructors";
 import MessageContent from "./MessageContent";
+import UpgradeModal from "./UpgradeModal";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 import { compressImageToDataUrl } from "@/lib/imageCompression";
+import {
+  watchSubscription,
+  entitlementsFor,
+  FREE_DAILY_MESSAGE_LIMIT,
+  todayKey,
+  type Subscription,
+} from "@/lib/subscription";
 
 // Map our app's language picker to BCP-47 codes that SpeechRecognition expects.
 // Taglish maps to en-PH (Philippine English) — closest practical match since
@@ -158,6 +166,45 @@ export default function ChatInterface({
   const [showSessionsSidebar, setShowSessionsSidebar] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Subscription state — drives the paywall gates.
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const entitlements = entitlementsFor(subscription);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string>("");
+
+  // Free-tier daily message counter — purely client-side for MVP. Resets at
+  // midnight local time. Not authoritative (a determined user could clear
+  // localStorage to reset), but good enough to remind people about the cap.
+  const dailyMessageKey = user ? `dailyMsgs:${user.uid}` : null;
+  const [dailyMessageCount, setDailyMessageCount] = useState(0);
+  useEffect(() => {
+    if (!dailyMessageKey) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(dailyMessageKey) || "{}");
+      if (stored.date === todayKey()) {
+        setDailyMessageCount(stored.count || 0);
+      } else {
+        setDailyMessageCount(0);
+        localStorage.setItem(
+          dailyMessageKey,
+          JSON.stringify({ date: todayKey(), count: 0 })
+        );
+      }
+    } catch {
+      setDailyMessageCount(0);
+    }
+  }, [dailyMessageKey]);
+
+  const bumpDailyMessages = useCallback(() => {
+    if (!dailyMessageKey) return;
+    const next = dailyMessageCount + 1;
+    setDailyMessageCount(next);
+    localStorage.setItem(
+      dailyMessageKey,
+      JSON.stringify({ date: todayKey(), count: next })
+    );
+  }, [dailyMessageKey, dailyMessageCount]);
+
   // Session persistence (Firestore) — only used when user is signed in.
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
@@ -195,6 +242,16 @@ export default function ChatInterface({
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
 
+  // Live subscription state — unlocks paid features as soon as a payment lands.
+  useEffect(() => {
+    if (!user) {
+      setSubscription(null);
+      return;
+    }
+    const unsub = watchSubscription(user.uid, (sub) => setSubscription(sub));
+    return () => unsub();
+  }, [user]);
+
   const handleSend = useCallback(
     async (overrideInput?: string) => {
       const text = (overrideInput ?? input).trim();
@@ -206,6 +263,19 @@ export default function ChatInterface({
           "To continue with your free chat, sign in or create an account. Your chat history will be saved automatically."
         );
         setAuthModalOpen(true);
+        return;
+      }
+
+      // Daily message limit for free users (signed-in).
+      if (
+        isAuthenticated &&
+        !entitlements.unlimitedMessages &&
+        dailyMessageCount >= FREE_DAILY_MESSAGE_LIMIT
+      ) {
+        setUpgradeReason(
+          `You've used all ${FREE_DAILY_MESSAGE_LIMIT} free questions for today. Upgrade for unlimited questions, image uploads, and every professor.`
+        );
+        setUpgradeOpen(true);
         return;
       }
 
@@ -229,6 +299,7 @@ export default function ChatInterface({
       setAttachments([]);
       setIsLoading(true);
       setMessageCount((c) => c + 1);
+      if (isAuthenticated) bumpDailyMessages();
       setReplySuggestions([]);
 
       const assistantId = newId();
@@ -355,6 +426,9 @@ export default function ChatInterface({
       language,
       user,
       instructor,
+      entitlements.unlimitedMessages,
+      dailyMessageCount,
+      bumpDailyMessages,
     ]
   );
 
@@ -402,6 +476,15 @@ export default function ChatInterface({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
+    if (files.length === 0) return;
+    // Image uploads are a paid feature.
+    if (!entitlements.canUploadImages) {
+      setUpgradeReason(
+        "Image uploads are part of the Starter and Family plans. Upgrade to let Apex Tutor read photos of textbook problems."
+      );
+      setUpgradeOpen(true);
+      return;
+    }
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
       const url = URL.createObjectURL(file);
@@ -925,6 +1008,21 @@ export default function ChatInterface({
               {FREE_MESSAGE_LIMIT}
             </p>
           )}
+          {isAuthenticated && !entitlements.isPaid && dailyMessageCount > 0 && (
+            <p className="text-center text-slate-400 text-xs mt-3">
+              {Math.max(0, FREE_DAILY_MESSAGE_LIMIT - dailyMessageCount)} of{" "}
+              {FREE_DAILY_MESSAGE_LIMIT} free questions left today ·{" "}
+              <button
+                onClick={() => {
+                  setUpgradeReason("");
+                  setUpgradeOpen(true);
+                }}
+                className="text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Upgrade for unlimited
+              </button>
+            </p>
+          )}
         </div>
 
         {/* Suggested Questions sidebar */}
@@ -971,6 +1069,12 @@ export default function ChatInterface({
         onClose={() => setAuthModalOpen(false)}
         defaultMode="signup"
         reason={authModalReason}
+      />
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        user={user}
+        reason={upgradeReason}
       />
     </div>
   );

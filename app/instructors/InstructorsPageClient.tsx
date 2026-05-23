@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { ArrowRight, Loader2, LogOut } from "lucide-react";
+import { ArrowRight, Loader2, LogOut, Lock, Sparkles } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "@/lib/auth";
 import { INSTRUCTORS } from "@/lib/instructors";
+import { watchSubscription, hasActiveSubscription } from "@/lib/subscription";
 import Logo from "@/components/Logo";
 import AuthModal from "@/components/AuthModal";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function InstructorsPageClient() {
   const router = useRouter();
@@ -21,6 +23,8 @@ export default function InstructorsPageClient() {
     null
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const chatUrlFor = (instructorId: string) => {
     const params = new URLSearchParams({ instructor: instructorId });
@@ -36,6 +40,18 @@ export default function InstructorsPageClient() {
     return () => unsub();
   }, []);
 
+  // Live subscription state — flips lock overlays the moment a payment lands.
+  useEffect(() => {
+    if (!user) {
+      setIsPaid(false);
+      return;
+    }
+    const unsub = watchSubscription(user.uid, (sub) => {
+      setIsPaid(hasActiveSubscription(sub));
+    });
+    return () => unsub();
+  }, [user]);
+
   // After sign-in, if user was trying to enter an instructor, send them.
   useEffect(() => {
     if (user && pendingInstructorId) {
@@ -48,6 +64,11 @@ export default function InstructorsPageClient() {
     if (!user) {
       setPendingInstructorId(instructorId);
       setAuthModalOpen(true);
+      return;
+    }
+    const instructor = INSTRUCTORS.find((i) => i.id === instructorId);
+    if (instructor && !instructor.freeTier && !isPaid) {
+      setUpgradeOpen(true);
       return;
     }
     router.push(chatUrlFor(instructorId));
@@ -164,47 +185,63 @@ export default function InstructorsPageClient() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-            {INSTRUCTORS.map((i) => (
-              <button
-                key={i.id}
-                onClick={() => handleStart(i.id)}
-                className="group relative text-left rounded-3xl p-7 transition-all bg-white border border-slate-200 hover:shadow-lg hover:-translate-y-0.5"
-                style={{
-                  // subtle accent border on hover
-                  ["--accent" as string]: i.accentColor,
-                }}
-              >
-                <div className="flex items-start gap-4 mb-5">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-sm shrink-0"
-                    style={{ background: i.accentColor }}
-                  >
-                    {i.avatarInitial}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-xs uppercase tracking-wider font-semibold mb-1"
-                      style={{ color: i.accentColor }}
-                    >
-                      {i.subject}
-                    </p>
-                    <h2 className="text-lg font-bold text-ink">{i.name}</h2>
-                  </div>
-                </div>
-
-                <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                  {i.tagline}
-                </p>
-
-                <span
-                  className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
-                  style={{ color: i.accentColor }}
+            {INSTRUCTORS.map((i) => {
+              const locked = !i.freeTier && !isPaid;
+              return (
+                <button
+                  key={i.id}
+                  onClick={() => handleStart(i.id)}
+                  className="group relative text-left rounded-3xl p-7 transition-all bg-white border border-slate-200 hover:shadow-lg hover:-translate-y-0.5"
+                  style={{ ["--accent" as string]: i.accentColor }}
                 >
-                  Start lesson
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </span>
-              </button>
-            ))}
+                  <div className="flex items-start gap-4 mb-5">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-sm shrink-0"
+                      style={{ background: i.accentColor }}
+                    >
+                      {i.avatarInitial}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p
+                          className="text-xs uppercase tracking-wider font-semibold"
+                          style={{ color: i.accentColor }}
+                        >
+                          {i.subject}
+                        </p>
+                        {locked && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-600 bg-indigo-100 rounded-full px-1.5 py-0.5">
+                            <Sparkles className="w-2.5 h-2.5" /> PAID
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-lg font-bold text-ink">{i.name}</h2>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                    {i.tagline}
+                  </p>
+
+                  <span
+                    className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                    style={{ color: locked ? "#64748b" : i.accentColor }}
+                  >
+                    {locked ? (
+                      <>
+                        <Lock className="w-3.5 h-3.5" />
+                        Upgrade to unlock
+                      </>
+                    ) : (
+                      <>
+                        Start lesson
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -218,6 +255,12 @@ export default function InstructorsPageClient() {
         onClose={handleAuthClose}
         defaultMode="signup"
         reason="Create a free account to start a lesson with your chosen professor."
+      />
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        user={user}
+        reason="This professor is part of the Starter and Family plans. Upgrade to unlock all subjects."
       />
     </main>
   );
