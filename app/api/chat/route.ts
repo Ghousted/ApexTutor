@@ -1,7 +1,14 @@
 import { NextRequest } from "next/server";
 import { streamChatResponse, ChatMessage } from "@/lib/groq";
 
-export const runtime = "edge";
+// Node runtime is required because we use firebase-admin (Firestore SDK) and
+// Transformers.js (BGE-small for query embedding) for RAG retrieval. Both
+// need Node-only APIs that the edge runtime doesn't expose.
+export const runtime = "nodejs";
+// Embedding the user query takes ~50–200ms on a warm function. Chunk
+// retrieval from Firestore + cosine ranking adds another ~200–500ms. Bump
+// the timeout so the full chat turn (incl. Groq streaming) has headroom.
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {

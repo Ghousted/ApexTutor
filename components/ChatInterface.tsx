@@ -38,6 +38,7 @@ import MessageContent from "./MessageContent";
 import UpgradeModal from "./UpgradeModal";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 import { compressImageToDataUrl } from "@/lib/imageCompression";
+import { useStreamingTts } from "@/lib/useStreamingTts";
 import {
   watchSubscription,
   entitlementsFor,
@@ -134,8 +135,16 @@ export default function ChatInterface({
   const isAuthenticated = !!user;
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalReason, setAuthModalReason] = useState<string>("");
-  const [voiceMode] = useState(false);
+  // Voice Mode: when on, the AI reads its replies aloud as they stream in,
+  // and the system prompt is nudged toward pure English (better for TTS).
+  const [voiceMode, setVoiceMode] = useState(false);
   const [language, setLanguage] = useState<Language>("English");
+
+  // Streaming TTS controller — sentence-by-sentence playback during gen.
+  const streamingTts = useStreamingTts({
+    lang: language,
+    voiceId: instructor.voiceId,
+  });
 
   // Speech-to-text. Hook handles permission, support detection, lifecycle.
   const stt = useSpeechRecognition({ lang: SPEECH_LANG[language] });
@@ -301,6 +310,9 @@ export default function ChatInterface({
       setMessageCount((c) => c + 1);
       if (isAuthenticated) bumpDailyMessages();
       setReplySuggestions([]);
+      // Hard-stop any TTS still playing from a previous turn so the new
+      // response starts cleanly.
+      if (voiceMode) streamingTts.cancel();
 
       const assistantId = newId();
       setMessages((prev) => [
@@ -367,6 +379,10 @@ export default function ChatInterface({
         const decoder = new TextDecoder();
         let fullText = "";
 
+        // Kick off streaming TTS if voice mode is on. start() resets any
+        // prior playback state so a new response begins cleanly.
+        if (voiceMode) streamingTts.start();
+
         if (reader) {
           while (true) {
             const { done, value } = await reader.read();
@@ -375,8 +391,14 @@ export default function ChatInterface({
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantId ? { ...m, content: fullText } : m))
             );
+            // Feed the cursor to the streaming TTS — internally checks for
+            // newly-completed sentences and queues them.
+            if (voiceMode) streamingTts.feed(fullText);
           }
         }
+
+        // Stream finished — flush the trailing sentence (if any) into TTS.
+        if (voiceMode) streamingTts.endStream();
 
         // Persist assistant response.
         if (fullText && user && sessionIdForSave) {
@@ -719,6 +741,39 @@ export default function ChatInterface({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Voice Mode toggle — when on, AI reads each sentence aloud as
+                it streams. Also flips the system prompt to English-only for
+                cleaner pronunciation. */}
+            <button
+              onClick={() => {
+                if (voiceMode) {
+                  // Turning it off → stop any in-flight playback.
+                  streamingTts.cancel();
+                }
+                setVoiceMode((v) => !v);
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                voiceMode
+                  ? "bg-indigo-500 text-white border-indigo-500 hover:bg-indigo-600"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              )}
+              title={
+                voiceMode
+                  ? "Voice mode on — AI reads replies aloud"
+                  : "Turn on voice mode to read replies aloud"
+              }
+              aria-pressed={voiceMode}
+            >
+              <Volume2
+                className={cn(
+                  "w-3.5 h-3.5",
+                  streamingTts.state === "playing" && "animate-pulse"
+                )}
+              />
+              Voice
+            </button>
+
             <div className="flex items-center gap-1 bg-slate-100 rounded-full p-1">
               {LANGUAGES.map((lang) => (
                 <button
@@ -765,7 +820,7 @@ export default function ChatInterface({
                         <p className="text-sm font-medium text-ink truncate">
                           {user.displayName || "Apex Tutor user"}
                         </p>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="text-xs text-slate-500 truncate">~
                           {user.email}
                         </p>
                       </div>

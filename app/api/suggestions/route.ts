@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { groqClient } from "@/lib/groq";
 
-export const runtime = "edge";
+// Node runtime — lib/groq now transitively imports firebase-admin (for RAG),
+// which isn't edge-compatible. Suggestions aren't latency-critical so the
+// cold-start cost of Node is fine.
+export const runtime = "nodejs";
 
 interface Msg {
   role: "user" | "assistant";

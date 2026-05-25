@@ -9,14 +9,14 @@
 import { getApps, initializeApp, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-let adminApp: App | null = null;
+let cachedApp: App | null = null;
 
 function getAdminApp(): App {
-  if (adminApp) return adminApp;
+  if (cachedApp) return cachedApp;
   const existing = getApps();
   if (existing.length > 0) {
-    adminApp = existing[0];
-    return adminApp;
+    cachedApp = existing[0];
+    return cachedApp;
   }
 
   const raw = process.env.FIREBASE_ADMIN_KEY;
@@ -36,16 +36,22 @@ function getAdminApp(): App {
   // Replace escaped newlines (some platforms escape \n in env vars).
   serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
 
-  adminApp = initializeApp({
+  cachedApp = initializeApp({
     credential: cert({
       projectId: serviceAccount.project_id,
       clientEmail: serviceAccount.client_email,
       privateKey: serviceAccount.private_key,
     }),
   });
-  return adminApp;
+  return cachedApp;
 }
 
 export function adminDb() {
   return getFirestore(getAdminApp());
+}
+
+/** Public-named alias of getAdminApp for use by other server helpers
+ *  (e.g., adminAuth.ts needs the App to access firebase-admin/auth). */
+export function adminApp() {
+  return getAdminApp();
 }
