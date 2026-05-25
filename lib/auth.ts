@@ -18,12 +18,18 @@ export async function ensureUserProfile(user: FirebaseUser) {
   const ref = doc(db, "users", user.uid);
   const existing = await getDoc(ref);
   if (existing.exists()) return;
+  // The user signing up IS the parent. Mirror the displayName into
+  // profile.parentName so the rest of the app has a clean field for it
+  // regardless of how the parent signed up (email/password vs Google).
   await setDoc(ref, {
     uid: user.uid,
     email: user.email ?? null,
     displayName: user.displayName ?? null,
     photoURL: user.photoURL ?? null,
     createdAt: serverTimestamp(),
+    profile: {
+      parentName: user.displayName ?? null,
+    },
   });
 }
 

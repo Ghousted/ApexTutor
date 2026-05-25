@@ -26,7 +26,7 @@ export default function LandingHeader() {
   useEffect(() => {
     if (user && redirectAfterSignIn) {
       setRedirectAfterSignIn(false);
-      router.push("/instructors");
+      router.push("/courses");
     }
   }, [user, redirectAfterSignIn, router]);
 
@@ -57,7 +57,7 @@ export default function LandingHeader() {
         {user ? (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/instructors")}
+              onClick={() => router.push("/courses")}
               className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-ink hover:text-indigo-600 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
@@ -98,7 +98,7 @@ export default function LandingHeader() {
                     <button
                       onClick={() => {
                         setMenuOpen(false);
-                        router.push("/instructors");
+                        router.push("/courses");
                       }}
                       className="sm:hidden w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
                     >

@@ -3,6 +3,18 @@ import { getInstructor } from "./instructors";
 import { cosineSimilarity } from "./chunking";
 import { getAllChunks, type ChunkDoc } from "./textbooks";
 import { embed } from "./embeddings";
+import type { Lesson } from "./lessons";
+
+/** Lesson context passed into the prompt to make the AI drive the lesson. */
+export interface LessonContext {
+  lesson: Lesson;
+  gradeLevel: number;
+  /** True only on the very first assistant turn of this lesson. Drives the
+   *  "intro + calibration question" opener vs. just continuing teaching. */
+  isFirstTurnOfLesson: boolean;
+  /** Student's first name — used by the AI to address them personally. */
+  studentName?: string;
+}
 
 export const groqClient = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -63,10 +75,15 @@ export interface ChatMessage {
   content: string;
 }
 
-// Models. Text-only conversations use the fast 70B. When images are attached
-// to the LATEST user message, we switch to a vision-capable Llama 4 variant.
-// Past turns in history stay as plain text — only the current image is sent.
-const TEXT_MODEL = "llama-3.3-70b-versatile";
+// Models.
+//   - TEXT_MODEL: used for the bulk of chat turns. We use 8b-instant because
+//     Groq's free tier caps the 70B model at 100k tokens/day, which is
+//     ~25 lesson turns before hitting "rate_limit_exceeded". 8b-instant has
+//     ~5x the free quota and still handles widget-emitting / lesson driving
+//     reliably. If you upgrade to Groq Dev Tier, swap this back to
+//     "llama-3.3-70b-versatile" for marginally smarter conversation.
+//   - VISION_MODEL: used only when the latest user message has images.
+const TEXT_MODEL = "llama-3.1-8b-instant";
 const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 // RAG retrieval tuning.
@@ -139,6 +156,41 @@ async function retrieveRagContext(
   return scored.map((s) => s.chunk);
 }
 
+function formatLessonBlock(ctx: LessonContext): string {
+  const { lesson, gradeLevel, isFirstTurnOfLesson, studentName } = ctx;
+  const nameClause = studentName ? ` Address them as "${studentName}".` : "";
+
+  // Open with intro + calibration on first turn; otherwise continue.
+  const opener = isFirstTurnOfLesson
+    ? `First turn: 1-sentence greeting → say lesson title → ask: "${lesson.calibrationQuestion}"`
+    : `Continue teaching. Don't re-introduce.`;
+
+  return `\n\n# Lesson: ${lesson.title}
+Goal: ${lesson.objective}
+Student: Grade ${gradeLevel}.${nameClause}
+
+${opener}
+
+# Drive the lesson — RULES
+- Reply = 1-2 short sentences + ONE widget marker. EVERY turn.
+- React warmly to their answer, THEN emit the next widget. No dead air.
+- Vary widgets. Don't repeat the same type 3 times in a row.
+- After ~5 successful interactions and they can explain it, emit [[LESSON_COMPLETE]] at the end.
+
+# Widget formats (emit ONE per turn)
+[[QUIZ:Q=question;A=opt1;B=opt2;C=opt3;correct=A]]
+[[FRACTION_BAR:target=3/4]]  — student clicks cells to fill the fraction
+[[MATCH:prompt=Match equations to solutions|pairs=2x+1=3=>x=1|3x=6=>x=2|x-4=0=>x=4]]
+[[SORT:prompt=Put these steps in order|items=Subtract 3 from both sides|Divide both sides by 2|Solution: x=4]]  — student drags rows into the correct order
+
+# Example (good)
+"Magaling! Now build 5/8 yourself:
+[[FRACTION_BAR:target=5/8]]"
+
+# Example (BAD)
+"That's right! Do you understand?"  — no widget, generic chatbot. AVOID.`;
+}
+
 function formatRagContext(chunks: ChunkDoc[]): string {
   if (chunks.length === 0) return "";
   const blocks = chunks
@@ -160,7 +212,13 @@ export async function streamChatResponse(
    * When present, we switch to a vision-capable model and reformat the last
    * user turn using OpenAI's multimodal content-array shape.
    */
-  images?: string[]
+  images?: string[],
+  /**
+   * Curriculum context. When present, the AI drives a specific lesson rather
+   * than asking "what would you like to learn?" and watches for mastery to
+   * emit a [[LESSON_COMPLETE]] marker.
+   */
+  lessonContext?: LessonContext
 ) {
   const instructor = getInstructor(instructorId);
   const personaBlock = instructor ? instructor.personaPrompt + "\n\n" : "";
@@ -217,8 +275,19 @@ export async function streamChatResponse(
     return `\n\nLANGUAGE: Respond in Taglish — natural code-switched mix of English and Tagalog as Filipino students commonly speak. Keep technical terms in English; weave Tagalog connectors and explanations for warmth and clarity.`;
   })();
 
+  // Curriculum block — overrides the generic "ask what they want to learn"
+  // opener and tells the AI exactly what to teach this session.
+  const lessonBlock = lessonContext
+    ? formatLessonBlock(lessonContext)
+    : "";
+
   const systemContent =
-    personaBlock + SYSTEM_PROMPT + contextLine + languageLine + ragBlock;
+    personaBlock +
+    SYSTEM_PROMPT +
+    contextLine +
+    languageLine +
+    lessonBlock +
+    ragBlock;
 
   const hasImages = Array.isArray(images) && images.length > 0;
 

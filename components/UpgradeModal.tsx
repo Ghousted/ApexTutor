@@ -73,7 +73,7 @@ export default function UpgradeModal({
       blurb: "For one student.",
       features: [
         "Unlimited questions",
-        "All professors (Math + Science)",
+        "All courses (Math + Science)",
         "Image uploads",
         "Voice replies",
       ],

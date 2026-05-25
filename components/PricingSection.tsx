@@ -47,7 +47,7 @@ const PLANS: PlanCard[] = [
     paid: true,
     features: [
       "Unlimited questions",
-      "All professors (Math + Science)",
+      "All courses (Math + Science)",
       "Image uploads",
       "Voice replies",
       "Tagalog & Taglish modes",
@@ -86,13 +86,13 @@ export default function PricingSection() {
   const handleClick = async (plan: PlanCard) => {
     setError("");
     if (!plan.paid) {
-      router.push("/instructors");
+      router.push("/courses");
       return;
     }
     if (!user) {
       // Send signed-out users through the auth flow on the instructors page.
       // They can come back and pick a plan after signing in.
-      router.push("/instructors");
+      router.push("/courses");
       return;
     }
     setSubmittingPlan(plan.id);

@@ -24,7 +24,7 @@ export default function BillingCancelledPage() {
             Back to home
           </Link>
           <Link
-            href="/instructors"
+            href="/courses"
             className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 hover:bg-white text-ink rounded-full font-medium text-sm transition-colors"
           >
             Continue with free

@@ -39,10 +39,32 @@ let kokoroInstance: KokoroTTSLike | null = null;
 let kokoroLoading: Promise<KokoroTTSLike> | null = null;
 const mmsCache = new Map<string, MmsPipeLike>();
 
+// onnxruntime-web prints two harmless warnings on every session create
+// ("Some nodes were not assigned to the preferred execution providers" and
+// "Rerunning with verbose output..."). They route through console.error and
+// turn the Next.js dev overlay red. Filter just those two lines.
+let consoleFilterInstalled = false;
+function installOrtWarningFilter() {
+  if (consoleFilterInstalled || typeof window === "undefined") return;
+  consoleFilterInstalled = true;
+  const origError = console.error;
+  console.error = (...args: unknown[]) => {
+    const first = typeof args[0] === "string" ? args[0] : "";
+    if (
+      first.includes("VerifyEachNodeIsAssignedToAnEp") ||
+      first.includes("Rerunning with verbose output")
+    ) {
+      return;
+    }
+    origError.apply(console, args);
+  };
+}
+
 async function loadKokoro(): Promise<KokoroTTSLike> {
   if (kokoroInstance) return kokoroInstance;
   if (kokoroLoading) return kokoroLoading;
 
+  installOrtWarningFilter();
   kokoroLoading = (async () => {
     const { KokoroTTS } = await import("kokoro-js");
     // Try WebGPU first — massive speedup. Falls back to WASM if unavailable.

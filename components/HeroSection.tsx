@@ -32,7 +32,7 @@ export default function HeroSection() {
   useEffect(() => {
     if (user && pendingQuery && !navigatedRef.current) {
       navigatedRef.current = true;
-      router.push(`/instructors?q=${encodeURIComponent(pendingQuery)}`);
+      router.push(`/courses?q=${encodeURIComponent(pendingQuery)}`);
     }
   }, [user, pendingQuery, router]);
 
@@ -44,7 +44,7 @@ export default function HeroSection() {
       setAuthOpen(true);
       return;
     }
-    router.push(`/instructors?q=${encodeURIComponent(query)}`);
+    router.push(`/courses?q=${encodeURIComponent(query)}`);
   };
 
   const handleAuthClose = () => {

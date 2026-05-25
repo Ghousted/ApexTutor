@@ -97,11 +97,11 @@ export default function AuthModal({
               Free forever
             </div>
             <h2 className="text-2xl font-bold text-ink mb-1.5">
-              Create your free account
+              Create your child&apos;s account
             </h2>
             <p className="text-sm text-slate-500">
               {reason ||
-                "Save your chats, track progress, and unlock voice replies. Takes 10 seconds."}
+                "Parents sign up here. After this, we'll ask a few quick things about your child to set up their tutor."}
             </p>
           </div>
         ) : (
@@ -151,7 +151,7 @@ export default function AuthModal({
             <Field
               icon={<UserIcon className="w-4 h-4" />}
               type="text"
-              placeholder="Your name (optional)"
+              placeholder="Parent's name (you)"
               value={name}
               onChange={setName}
               disabled={submitting}

@@ -146,7 +146,7 @@ function ActiveUI({
         subscription is active.
       </p>
       <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-        All professors, image uploads, and unlimited questions are unlocked.
+        All courses, image uploads, and unlimited questions are unlocked.
         {renewsOn && (
           <>
             {" "}
@@ -155,7 +155,7 @@ function ActiveUI({
         )}
       </p>
       <Link
-        href="/instructors"
+        href="/courses"
         className="inline-flex items-center justify-center px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-medium text-sm transition-colors"
       >
         Start a lesson
