@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+import SessionSync from "@/components/SessionSync";
 
 // Suisse Intl is the Krea-spec typeface; Inter is the documented substitute.
 const inter = Inter({
@@ -28,6 +29,7 @@ export default function RootLayout({
       className={`${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-void-black text-canvas-white">
+        <SessionSync />
         {children}
       </body>
     </html>

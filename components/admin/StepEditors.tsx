@@ -394,3 +394,497 @@ export function CheckpointEditor({
     />
   );
 }
+
+export function FillBlankEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "fill-blank" }>>) {
+  const altsDraft = (step.alternatives ?? []).join(", ");
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="What the tutor says before the sentence appears…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Sentence (use ___ where the blank goes)
+        </label>
+        <textarea
+          value={step.sentence}
+          onChange={(e) => onChange({ ...step, sentence: e.target.value })}
+          placeholder="The center of an atom is called the ___."
+          rows={2}
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)] resize-none"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+            Answer
+          </label>
+          <input
+            value={step.answer}
+            onChange={(e) => onChange({ ...step, answer: e.target.value })}
+            placeholder="nucleus"
+            className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+            Alternatives (comma-separated)
+          </label>
+          <input
+            value={altsDraft}
+            onChange={(e) =>
+              onChange({
+                ...step,
+                alternatives: e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            placeholder="atomic nucleus, the nucleus"
+            className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function NumberLineEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "number-line" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro for the placement task…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Drag the marker to room temperature."
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <NumberField
+          label="Min"
+          value={step.min}
+          onChange={(min) => onChange({ ...step, min })}
+        />
+        <NumberField
+          label="Max"
+          value={step.max}
+          onChange={(max) => onChange({ ...step, max })}
+        />
+        <NumberField
+          label="Target"
+          value={step.target}
+          onChange={(target) => onChange({ ...step, target })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+            Unit (optional)
+          </label>
+          <input
+            value={step.unit ?? ""}
+            onChange={(e) => onChange({ ...step, unit: e.target.value })}
+            placeholder="°C, %, min"
+            className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+          />
+        </div>
+        <NumberField
+          label="Tolerance (optional)"
+          value={step.tolerance ?? 0}
+          onChange={(tolerance) =>
+            onChange({ ...step, tolerance: tolerance > 0 ? tolerance : undefined })
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+export function HighlightEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "highlight" }>>) {
+  const targetsDraft = step.targets.join(", ");
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Tap every verb."
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Passage
+        </label>
+        <textarea
+          value={step.passage}
+          onChange={(e) => onChange({ ...step, passage: e.target.value })}
+          placeholder="The fox runs quickly across the field."
+          rows={4}
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)] resize-none"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Target words (comma-separated)
+        </label>
+        <input
+          value={targetsDraft}
+          onChange={(e) =>
+            onChange({
+              ...step,
+              targets: e.target.value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
+          placeholder="runs, quickly"
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+    </div>
+  );
+}
+
+export function ReadingPassageEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "reading-passage" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro for the reading…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Passage
+        </label>
+        <textarea
+          value={step.passage}
+          onChange={(e) => onChange({ ...step, passage: e.target.value })}
+          placeholder="A few paragraphs the student reads on screen."
+          rows={6}
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)] resize-none"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Question
+        </label>
+        <input
+          value={step.question}
+          onChange={(e) => onChange({ ...step, question: e.target.value })}
+          placeholder="What is the main idea of the passage?"
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Options
+        </label>
+        <div className="flex flex-col gap-2">
+          {step.options.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={opt.key}
+                onChange={(e) => {
+                  const options = step.options.map((o, j) =>
+                    j === i ? { ...o, key: e.target.value } : o
+                  );
+                  onChange({ ...step, options });
+                }}
+                className="w-12 bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm text-center outline-none focus:border-[var(--border-strong)] font-mono"
+                placeholder="A"
+              />
+              <input
+                value={opt.label}
+                onChange={(e) => {
+                  const options = step.options.map((o, j) =>
+                    j === i ? { ...o, label: e.target.value } : o
+                  );
+                  onChange({ ...step, options });
+                }}
+                className="flex-1 bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm outline-none focus:border-[var(--border-strong)]"
+                placeholder="Option text"
+              />
+              <button
+                onClick={() =>
+                  onChange({
+                    ...step,
+                    options: step.options.filter((_, j) => j !== i),
+                  })
+                }
+                className="text-xs text-ash-gray hover:text-canvas-white px-2"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() =>
+            onChange({
+              ...step,
+              options: [
+                ...step.options,
+                {
+                  key: String.fromCharCode(65 + step.options.length),
+                  label: "",
+                },
+              ],
+            })
+          }
+          className="text-xs px-3 py-1 mt-2 bg-iron border border-[var(--border-subtle)] rounded-md text-canvas-white hover:bg-[#2e2e2e]"
+        >
+          + Add option
+        </button>
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Correct key
+        </label>
+        <input
+          value={step.correctKey}
+          onChange={(e) => onChange({ ...step, correctKey: e.target.value })}
+          className="w-16 bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)] text-center"
+          placeholder="A"
+        />
+      </div>
+    </div>
+  );
+}
+
+export function TapLabelEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "tap-label" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro for the diagram…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Find each part of the cell."
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Image URL
+        </label>
+        <input
+          value={step.imageUrl}
+          onChange={(e) => onChange({ ...step, imageUrl: e.target.value })}
+          placeholder="https://…/diagram.png"
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+        />
+        {step.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={step.imageUrl}
+            alt=""
+            className="mt-2 max-h-40 object-contain rounded border border-[var(--border-subtle)] bg-iron"
+          />
+        )}
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Hotspots — coordinates in 0..1 (fraction of image)
+        </label>
+        <div className="flex flex-col gap-2">
+          {step.hotspots.map((h, i) => (
+            <div key={i} className="grid grid-cols-[1fr,80px,80px,32px] gap-2 items-center">
+              <input
+                value={h.label}
+                onChange={(e) => {
+                  const hotspots = step.hotspots.map((p, j) =>
+                    j === i ? { ...p, label: e.target.value } : p
+                  );
+                  onChange({ ...step, hotspots });
+                }}
+                placeholder="Label"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm outline-none focus:border-[var(--border-strong)]"
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={h.x}
+                onChange={(e) => {
+                  const hotspots = step.hotspots.map((p, j) =>
+                    j === i ? { ...p, x: Number(e.target.value) } : p
+                  );
+                  onChange({ ...step, hotspots });
+                }}
+                placeholder="x"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={h.y}
+                onChange={(e) => {
+                  const hotspots = step.hotspots.map((p, j) =>
+                    j === i ? { ...p, y: Number(e.target.value) } : p
+                  );
+                  onChange({ ...step, hotspots });
+                }}
+                placeholder="y"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+              />
+              <button
+                onClick={() =>
+                  onChange({
+                    ...step,
+                    hotspots: step.hotspots.filter((_, j) => j !== i),
+                  })
+                }
+                className="text-xs text-ash-gray hover:text-canvas-white"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() =>
+            onChange({
+              ...step,
+              hotspots: [...step.hotspots, { x: 0.5, y: 0.5, label: "" }],
+            })
+          }
+          className="text-xs px-3 py-1 mt-2 bg-iron border border-[var(--border-subtle)] rounded-md text-canvas-white hover:bg-[#2e2e2e]"
+        >
+          + Add hotspot
+        </button>
+        <p className="text-[10px] text-ash-gray mt-2 leading-relaxed">
+          Tip: x and y are fractions from 0 (left/top) to 1 (right/bottom).
+          For a center spot use 0.5 / 0.5. Tap tolerance is ±10%.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+        {label}
+      </label>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+      />
+    </div>
+  );
+}
+
+export function TrueFalseEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "true-false" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="What the tutor says to introduce the statement…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Statement
+        </label>
+        <textarea
+          value={step.statement}
+          onChange={(e) => onChange({ ...step, statement: e.target.value })}
+          placeholder="A factual statement the student will judge true or false."
+          rows={2}
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)] resize-none"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray">
+          Correct answer
+        </span>
+        <div className="inline-flex bg-iron rounded-md p-0.5 border border-[var(--border-subtle)]">
+          <button
+            onClick={() => onChange({ ...step, answer: true })}
+            className={
+              "px-3 py-1 rounded text-xs font-medium " +
+              (step.answer
+                ? "bg-canvas-white text-void-black"
+                : "text-ash-gray hover:text-canvas-white")
+            }
+          >
+            True
+          </button>
+          <button
+            onClick={() => onChange({ ...step, answer: false })}
+            className={
+              "px-3 py-1 rounded text-xs font-medium " +
+              (!step.answer
+                ? "bg-canvas-white text-void-black"
+                : "text-ash-gray hover:text-canvas-white")
+            }
+          >
+            False
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

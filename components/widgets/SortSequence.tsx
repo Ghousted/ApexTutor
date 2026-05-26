@@ -165,15 +165,25 @@ export default function SortSequence({
         </SortableContext>
       </DndContext>
 
-      <div className="flex items-center justify-between mt-4">
+      <div className="flex items-center justify-between mt-4 gap-2">
         <p className="text-xs text-ash-gray">
           {submitted
             ? `${correctCount} of ${items.length} in place`
             : "Drag rows to reorder, then check."}
         </p>
-        <button
-          onClick={handleCheck}
-          disabled={submitted}
+        <div className="flex items-center gap-1.5">
+          {!submitted && (
+            <button
+              onClick={() => setItems(initial)}
+              className="text-xs px-2.5 py-1 rounded-md text-ash-gray hover:text-canvas-white hover:bg-iron transition-colors"
+              title="Re-shuffle to the starting order"
+            >
+              Reset
+            </button>
+          )}
+          <button
+            onClick={handleCheck}
+            disabled={submitted}
           className={cn(
             "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
             submitted
@@ -183,18 +193,19 @@ export default function SortSequence({
               : "bg-canvas-white hover:opacity-90 text-void-black"
           )}
         >
-          {submitted ? (
-            allCorrect ? (
-              <>
-                <Check className="w-3.5 h-3.5" /> Perfect order!
-              </>
+            {submitted ? (
+              allCorrect ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Perfect order!
+                </>
+              ) : (
+                "Some out of place"
+              )
             ) : (
-              "Some out of place"
-            )
-          ) : (
-            "Check"
-          )}
-        </button>
+              "Check"
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

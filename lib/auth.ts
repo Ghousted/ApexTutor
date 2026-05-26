@@ -8,10 +8,33 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  getIdToken,
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
+
+/** Exchange the client's Firebase idToken for an HttpOnly server session
+ *  cookie. Called from every sign-in path so server components can gate
+ *  protected routes (like /learn) without trusting client state. */
+async function establishServerSession(user: FirebaseUser): Promise<void> {
+  try {
+    const idToken = await getIdToken(user, /* forceRefresh */ true);
+    const res = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) {
+      console.warn("[auth] session cookie endpoint returned", res.status);
+    }
+  } catch (e) {
+    // Failing to establish the cookie shouldn't break sign-in itself;
+    // the client UI still has a Firebase user. Paid-course access will
+    // just fail until a subsequent sign-in succeeds.
+    console.warn("[auth] establishServerSession failed:", e);
+  }
+}
 
 /** Create users/{uid} profile doc on first sign-in. Idempotent. */
 export async function ensureUserProfile(user: FirebaseUser) {
@@ -36,12 +59,14 @@ export async function ensureUserProfile(user: FirebaseUser) {
 export async function signInWithGoogle() {
   const cred = await signInWithPopup(auth, googleProvider);
   await ensureUserProfile(cred.user);
+  await establishServerSession(cred.user);
   return cred.user;
 }
 
 export async function signInWithEmail(email: string, password: string) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   await ensureUserProfile(cred.user);
+  await establishServerSession(cred.user);
   return cred.user;
 }
 
@@ -55,10 +80,18 @@ export async function signUpWithEmail(
     await updateProfile(cred.user, { displayName: displayName.trim() });
   }
   await ensureUserProfile(cred.user);
+  await establishServerSession(cred.user);
   return cred.user;
 }
 
 export async function signOut() {
+  // Clear the server cookie BEFORE the client SDK loses the user — that
+  // way the DELETE request doesn't race a tab navigation.
+  try {
+    await fetch("/api/auth/session", { method: "DELETE" });
+  } catch {
+    // ignore — worst case the cookie sits until it expires
+  }
   await firebaseSignOut(auth);
 }
 

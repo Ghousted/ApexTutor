@@ -16,6 +16,12 @@ interface LessonLite {
   stepCount: number;
 }
 
+/** Lessons run ~6 minutes on average — a heuristic that converts step count
+ *  into a more meaningful time signal for the catalog. */
+function estimateMinutes(stepCount: number): number {
+  return Math.max(2, Math.round(stepCount * 0.9));
+}
+
 /**
  * Lesson list that visually differentiates rows by the student's progress:
  *
@@ -119,9 +125,9 @@ function LessonRow({
 }) {
   return (
     <motion.li
-      whileHover={{ backgroundColor: "rgba(38,38,38,0.6)" }}
+      whileHover={{ backgroundColor: "rgba(38,38,38,0.6)", x: 2 }}
       className={cn(
-        "transition-colors",
+        "transition-colors relative",
         state === "current" && "bg-iron/40"
       )}
     >
@@ -171,7 +177,7 @@ function LessonRow({
             </p>
           )}
           <p className="text-[11px] text-ash-gray/70 mt-1">
-            {lesson.stepCount} step{lesson.stepCount === 1 ? "" : "s"}
+            ~{estimateMinutes(lesson.stepCount)} min
           </p>
         </div>
 

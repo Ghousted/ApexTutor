@@ -14,6 +14,12 @@ const STEP_TYPES: ReadonlyArray<Step["type"]> = [
   "match-pairs",
   "sort-sequence",
   "checkpoint",
+  "true-false",
+  "fill-blank",
+  "number-line",
+  "highlight",
+  "reading-passage",
+  "tap-label",
 ];
 
 export async function POST(req: NextRequest) {

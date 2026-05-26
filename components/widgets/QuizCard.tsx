@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { QuizWidget } from "@/lib/widgetParser";
 import { celebrateBurst } from "@/lib/confetti";
 import { useUiSounds } from "@/lib/sounds";
+import { hapticTap, hapticError } from "@/lib/haptics";
 import { pickEncouragement } from "@/lib/encouragement";
 import {
   isVoiceInputSupported,
@@ -174,6 +175,7 @@ export default function QuizCard({
     const isCorrect = key.toUpperCase() === widget.correctKey;
     if (isCorrect) {
       playCorrect();
+      hapticTap();
       // Confetti from the centre of the card.
       const rect = cardRef.current?.getBoundingClientRect();
       if (rect) {
@@ -187,6 +189,7 @@ export default function QuizCard({
       setTimeout(() => onAnswer(label, true), 900);
     } else {
       playWrong();
+      hapticError();
       onWrong?.();
       const { line, index } = pickEncouragement(
         "quiz",
@@ -200,6 +203,10 @@ export default function QuizCard({
   };
   // Keep the ref in sync with the latest closure.
   handlePickRef.current = handlePick;
+
+  const pickedOption = picked
+    ? widget.options.find((o) => o.key === picked) ?? null
+    : null;
 
   return (
     <div ref={cardRef} className="bg-coal rounded-[14px] border border-[var(--border-subtle)] p-4 sm:p-5">
@@ -287,9 +294,15 @@ export default function QuizCard({
       </div>
 
       {picked !== null && picked.toUpperCase() === widget.correctKey && (
-        <p className="text-xs mt-4 text-center text-canvas-white font-medium">
-          Great answer!
-        </p>
+        <div className="mt-4 text-center">
+          <p className="text-xs text-canvas-white font-medium mb-1">
+            Great answer!
+          </p>
+          <p className="text-[11px] text-ash-gray max-w-[42ch] mx-auto leading-relaxed">
+            {pickedOption?.label && `You chose: ${pickedOption.label}.`}{" "}
+            That&apos;s the right pick — moving on.
+          </p>
+        </div>
       )}
       {picked === null && encouragement && (
         <p className="text-xs mt-4 text-center text-ash-gray">

@@ -30,6 +30,7 @@ The "step" object's shape depends on its type. Use exactly these shapes:
 - sort-sequence:{ "type": "sort-sequence", "script": "...", "prompt": "...",
                   "items": ["first", "second", "third"] }
 - checkpoint:   { "type": "checkpoint", "script": "..." }
+- true-false:   { "type": "true-false", "script": "...", "statement": "...", "answer": true }
 
 Rules:
 - Scripts are 1-2 short sentences in plain English. Direct and warm.
@@ -197,6 +198,116 @@ function coerceStep(value: unknown): Step | null {
     }
     case "checkpoint":
       return { type, script: String(obj.script ?? "") };
+    case "true-false": {
+      const statement = String(obj.statement ?? "").trim();
+      if (!statement) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        statement,
+        answer: Boolean(obj.answer),
+      };
+    }
+    case "fill-blank": {
+      const sentence = String(obj.sentence ?? "").trim();
+      const answer = String(obj.answer ?? "").trim();
+      if (!sentence || !answer) return null;
+      const alternatives = Array.isArray(obj.alternatives)
+        ? obj.alternatives.map(String).map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        sentence,
+        answer,
+        alternatives,
+      };
+    }
+    case "number-line": {
+      const min = Number(obj.min ?? 0);
+      const max = Number(obj.max ?? 100);
+      const target = Number(obj.target ?? 0);
+      if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(target) || max <= min) {
+        return null;
+      }
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        min,
+        max,
+        target,
+        unit: obj.unit ? String(obj.unit) : undefined,
+        tolerance:
+          obj.tolerance && Number.isFinite(Number(obj.tolerance))
+            ? Number(obj.tolerance)
+            : undefined,
+      };
+    }
+    case "highlight": {
+      const passage = String(obj.passage ?? "").trim();
+      const targets = Array.isArray(obj.targets)
+        ? obj.targets.map(String).map((s) => s.trim()).filter(Boolean)
+        : [];
+      if (!passage || targets.length === 0) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        passage,
+        targets,
+      };
+    }
+    case "reading-passage": {
+      const passage = String(obj.passage ?? "").trim();
+      const question = String(obj.question ?? "").trim();
+      const options = Array.isArray(obj.options)
+        ? obj.options
+            .map((o) => {
+              if (!o || typeof o !== "object") return null;
+              const opt = o as Record<string, unknown>;
+              const key = String(opt.key ?? "").trim();
+              const label = String(opt.label ?? "").trim();
+              if (!key || !label) return null;
+              return { key, label };
+            })
+            .filter((o): o is { key: string; label: string } => o !== null)
+        : [];
+      const correctKey = String(obj.correctKey ?? "").trim();
+      if (!passage || !question || options.length < 2 || !correctKey) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        passage,
+        question,
+        options,
+        correctKey,
+      };
+    }
+    case "tap-label": {
+      const imageUrl = String(obj.imageUrl ?? "").trim();
+      const hotspots = Array.isArray(obj.hotspots)
+        ? obj.hotspots
+            .map((h) => {
+              if (!h || typeof h !== "object") return null;
+              const hp = h as Record<string, unknown>;
+              const x = Number(hp.x);
+              const y = Number(hp.y);
+              const label = String(hp.label ?? "").trim();
+              if (!Number.isFinite(x) || !Number.isFinite(y) || !label) return null;
+              return { x, y, label };
+            })
+            .filter((h): h is { x: number; y: number; label: string } => h !== null)
+        : [];
+      if (!imageUrl || hotspots.length === 0) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        imageUrl,
+        hotspots,
+      };
+    }
     default:
       return null;
   }

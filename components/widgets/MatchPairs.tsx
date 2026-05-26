@@ -16,6 +16,8 @@ import { Check, GripVertical } from "lucide-react";
 import gsap from "gsap";
 import { cn } from "@/lib/utils";
 import type { MatchPairsWidget } from "@/lib/widgetParser";
+import { useUiSounds } from "@/lib/sounds";
+import { hapticTap, hapticError } from "@/lib/haptics";
 
 /**
  * Drag-and-drop matching game. Left column shows prompts (e.g. equations);
@@ -46,6 +48,10 @@ export default function MatchPairs({
     () => Object.fromEntries(leftItems.map((l) => [l.id, null]))
   );
   const [submitted, setSubmitted] = useState(false);
+  const { playCorrect, playWrong } = useUiSounds();
+  // Per-slot "just landed" pulse state — keyed by right-id with the result
+  // ("good"/"bad") so we can drive a brief CSS animation on landing.
+  const [landed, setLanded] = useState<Record<string, "good" | "bad" | null>>({});
 
   useEffect(() => {
     const el = cardRef.current;
@@ -70,17 +76,40 @@ export default function MatchPairs({
   const handleDragEnd = (e: DragEndEvent) => {
     const leftId = String(e.active.id);
     const overId = e.over ? String(e.over.id) : null;
-    setPlacements((prev) => {
-      const next = { ...prev };
-      // Clear any other left-id previously placed on this right slot.
-      if (overId) {
+    if (!overId) return;
+    const right = rightItems.find((r) => r.id === overId);
+    if (!right) return;
+    const isCorrectDrop = right.correctLeftId === leftId;
+
+    if (isCorrectDrop) {
+      // Snap it in place + give a quick positive cue.
+      playCorrect();
+      hapticTap();
+      setPlacements((prev) => {
+        const next = { ...prev };
+        // Clear any other left previously on this slot.
         for (const k of Object.keys(next)) {
           if (next[k] === overId) next[k] = null;
         }
-      }
-      next[leftId] = overId;
-      return next;
-    });
+        next[leftId] = overId;
+        return next;
+      });
+      flashLanded(overId, "good");
+    } else {
+      // Wrong placement — bounce back. We don't store the placement at all
+      // so the left item visibly returns to the column.
+      playWrong();
+      hapticError();
+      flashLanded(overId, "bad");
+    }
+  };
+
+  /** Brief visual pulse on a drop slot after a landing attempt. */
+  const flashLanded = (slotId: string, kind: "good" | "bad") => {
+    setLanded((prev) => ({ ...prev, [slotId]: kind }));
+    setTimeout(() => {
+      setLanded((prev) => ({ ...prev, [slotId]: null }));
+    }, 500);
   };
 
   const allPlaced = Object.values(placements).every((v) => v !== null);
@@ -151,6 +180,7 @@ export default function MatchPairs({
                   submitted={submitted}
                   isCorrect={submitted && isCorrect}
                   isWrong={submitted && placedLeft !== undefined && !isCorrect}
+                  landed={landed[r.id] ?? null}
                 />
               );
             })}
@@ -159,15 +189,28 @@ export default function MatchPairs({
 
       </DndContext>
 
-      <div className="flex items-center justify-between mt-4">
+      <div className="flex items-center justify-between mt-4 gap-2">
         <p className="text-xs text-ash-gray">
           {submitted
             ? `${correctCount} of ${leftItems.length} correct`
             : `${Object.values(placements).filter(Boolean).length} of ${leftItems.length} placed`}
         </p>
-        <button
-          onClick={handleCheck}
-          disabled={submitted || !allPlaced}
+        <div className="flex items-center gap-1.5">
+          {!submitted && Object.values(placements).some(Boolean) && (
+            <button
+              onClick={() =>
+                setPlacements(
+                  Object.fromEntries(leftItems.map((l) => [l.id, null]))
+                )
+              }
+              className="text-xs px-2.5 py-1 rounded-md text-ash-gray hover:text-canvas-white hover:bg-iron transition-colors"
+            >
+              Reset
+            </button>
+          )}
+          <button
+            onClick={handleCheck}
+            disabled={submitted || !allPlaced}
           className={cn(
             "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
             submitted
@@ -177,18 +220,19 @@ export default function MatchPairs({
               : "bg-canvas-white hover:opacity-90 text-void-black disabled:bg-iron disabled:text-ash-gray"
           )}
         >
-          {submitted ? (
-            allCorrect ? (
-              <>
-                <Check className="w-3.5 h-3.5" /> All right!
-              </>
+            {submitted ? (
+              allCorrect ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> All right!
+                </>
+              ) : (
+                "Some off"
+              )
             ) : (
-              "Some off"
-            )
-          ) : (
-            "Check"
-          )}
-        </button>
+              "Check"
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -232,6 +276,7 @@ function DropSlot({
   submitted,
   isCorrect,
   isWrong,
+  landed,
 }: {
   id: string;
   rightText: string;
@@ -239,6 +284,8 @@ function DropSlot({
   submitted: boolean;
   isCorrect: boolean;
   isWrong: boolean;
+  /** "good" or "bad" briefly after a landing attempt; null otherwise. */
+  landed: "good" | "bad" | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
@@ -248,9 +295,11 @@ function DropSlot({
         "h-12 px-3 flex items-center gap-2 rounded-lg border-2 transition-colors text-sm",
         !placedLeft && !isOver && "border-dashed border-[var(--border-subtle)] bg-coal",
         !placedLeft && isOver && "border-[var(--border-strong)] bg-iron",
-        placedLeft && !submitted && "border-[var(--border-subtle)] bg-coal",
+        placedLeft && !submitted && "border-canvas-white bg-iron",
         isCorrect && "border-emerald-400 bg-coal",
-        isWrong && "border-rose-400 bg-coal"
+        isWrong && "border-rose-400 bg-coal",
+        landed === "good" && "ring-2 ring-canvas-white/70 animate-pulse",
+        landed === "bad" && "ring-2 ring-rose-400/70"
       )}
     >
       {placedLeft && (

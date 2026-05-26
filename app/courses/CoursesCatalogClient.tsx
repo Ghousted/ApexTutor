@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Filter, Flame, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Filter, Flame, Lock, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { getEnrollment, type EnrollmentDoc } from "@/lib/enrollments";
 import { getInstructor } from "@/lib/instructors";
+import { useDailyGoal, useActivityStrip } from "@/lib/dailyGoal";
 import { cn } from "@/lib/utils";
 
 export interface CatalogCourse {
@@ -170,6 +171,13 @@ export default function CoursesCatalogClient({
         )}
       </motion.div>
 
+      {/* Stats row — daily goal + 7-day activity strip side by side on
+          desktop, stacked on mobile. Visually anchors the dashboard. */}
+      <div className="grid md:grid-cols-[1fr,auto] gap-3 mb-6">
+        <DailyGoalCard />
+        <ActivityStrip />
+      </div>
+
       {/* Continue learning hero — only when a course is in progress */}
       {continueCard && (
         <ContinueHero
@@ -232,6 +240,112 @@ export default function CoursesCatalogClient({
   );
 }
 
+/** 7-day GitHub-style activity strip. Each cell lights based on whether
+ *  the student did a lesson that day. Today is the rightmost cell. */
+function ActivityStrip() {
+  const days = useActivityStrip(7);
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.1 }}
+      className="flex items-end gap-1.5 px-4 py-3 rounded-[14px] border border-[var(--border-subtle)] bg-coal"
+      aria-label="Activity over the last 7 days"
+    >
+      {days.map((d, i) => {
+        const dt = new Date(d.date + "T00:00:00");
+        const dayLabel = dayLabels[dt.getDay()];
+        const isToday = i === days.length - 1;
+        const intensity =
+          d.count === 0 ? 0 : d.count === 1 ? 1 : d.count === 2 ? 2 : 3;
+        return (
+          <div
+            key={d.date}
+            className="flex flex-col items-center gap-1"
+            title={`${d.date}: ${d.count} lesson${d.count === 1 ? "" : "s"}`}
+          >
+            <div
+              className={cn(
+                "w-7 h-7 rounded-md border transition-colors",
+                intensity === 0 && "bg-coal border-[var(--border-subtle)]",
+                intensity === 1 && "bg-canvas-white/30 border-[var(--border-strong)]",
+                intensity === 2 && "bg-canvas-white/60 border-canvas-white",
+                intensity === 3 && "bg-canvas-white border-canvas-white",
+                isToday && intensity === 0 && "ring-1 ring-[var(--border-strong)]"
+              )}
+            />
+            <span
+              className={cn(
+                "text-[10px] font-medium uppercase tracking-wider",
+                isToday ? "text-canvas-white" : "text-ash-gray"
+              )}
+            >
+              {dayLabel}
+            </span>
+          </div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+/** Small daily-target card — "Finish 1 lesson today · 0 of 1". Animates a
+ *  thin ring as the student knocks lessons off, then celebrates briefly
+ *  when the target is hit and dims for the rest of the day. */
+function DailyGoalCard() {
+  const goal = useDailyGoal();
+  const pct = Math.min(100, Math.round((goal.lessonsDone / goal.target) * 100));
+  const done = goal.lessonsDone >= goal.target;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 rounded-[14px] border",
+        done
+          ? "bg-iron border-canvas-white"
+          : "bg-coal border-[var(--border-subtle)]"
+      )}
+    >
+      {/* Ring */}
+      <div className="relative shrink-0" style={{ width: 36, height: 36 }}>
+        <svg width={36} height={36} className="-rotate-90" aria-hidden>
+          <circle cx={18} cy={18} r={15} fill="none" stroke="#2e2e2e" strokeWidth={3} />
+          <motion.circle
+            cx={18}
+            cy={18}
+            r={15}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={3}
+            strokeLinecap="round"
+            initial={{ strokeDasharray: "0 94.2" }}
+            animate={{ strokeDasharray: `${(pct / 100) * 94.2} 94.2` }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-0.5">
+          Today&apos;s goal
+        </p>
+        <p className="text-sm font-medium text-canvas-white">
+          {done
+            ? `${goal.lessonsDone} lesson${goal.lessonsDone === 1 ? "" : "s"} done — nice.`
+            : `${goal.lessonsDone} of ${goal.target} lesson${goal.target === 1 ? "" : "s"}`}
+        </p>
+      </div>
+      {done && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-canvas-white text-void-black text-[10px] font-semibold uppercase tracking-wider">
+          ✓ Done
+        </span>
+      )}
+    </motion.div>
+  );
+}
+
 /** Big "Continue learning" hero shown when the student has an in-progress
  *  course. Highest-impact change on the catalog — surfaces the one action
  *  the returning student is here to take. */
@@ -249,7 +363,9 @@ function ContinueHero({
     course.lessonCount > 0
       ? Math.round((completed / course.lessonCount) * 100)
       : 0;
-  const minutesEstimate = remaining * 6; // ~6 min/lesson is a reasonable rule-of-thumb
+  const lessonMinutes = 6; // ~6 min/lesson is a reasonable rule-of-thumb
+  const minutesEstimate = remaining * lessonMinutes;
+  const nextLessonNumber = Math.min(completed + 1, course.lessonCount);
   // Deep-link straight into the saved lesson so it really feels like "resume".
   const target = enrollment.currentLessonId
     ? `/learn/${course.id}/${enrollment.currentLessonId}`
@@ -263,7 +379,7 @@ function ContinueHero({
     >
       <Link
         href={target}
-        className="group relative block rounded-[14px] p-6 md:p-7 bg-coal border border-[var(--border-strong)] hover:border-canvas-white transition-colors overflow-hidden"
+        className="group relative block rounded-[14px] p-6 md:p-7 bg-coal border border-[var(--border-strong)] hover:border-canvas-white overflow-hidden card-lift card-accent-top"
       >
         <div className="flex items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-3 min-w-0">
@@ -272,7 +388,8 @@ function ContinueHero({
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-0.5">
-                Continue learning
+                Up next · Lesson {nextLessonNumber} of {course.lessonCount}
+                {" · "}~{lessonMinutes} min
               </p>
               <h3 className="text-xl md:text-2xl font-bold text-canvas-white truncate">
                 {course.title}
@@ -325,7 +442,7 @@ function FirstTimeHero({ course }: { course: CatalogCourse }) {
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-[14px] p-6 md:p-7 bg-coal border border-[var(--border-strong)]"
+      className="rounded-[14px] p-6 md:p-7 bg-coal border border-[var(--border-strong)] card-accent-top"
     >
       <div className="flex items-center gap-2 mb-3">
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-iron text-canvas-white text-[10px] font-semibold uppercase tracking-wider">
@@ -460,7 +577,7 @@ function CourseCard({
   return (
     <Link
       href={`/courses/${c.id}`}
-      className="group relative text-left rounded-[14px] p-6 bg-coal border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-colors"
+      className="group relative text-left rounded-[14px] p-6 bg-coal border border-[var(--border-subtle)] hover:border-canvas-white card-lift"
     >
       <div className="flex items-start gap-4 mb-4">
         <ProgressRing pct={progressPct} size={48}>
@@ -506,6 +623,12 @@ function CourseCard({
         {c.freeTier && !finished && !inProgress && (
           <span className="text-[11px] font-semibold uppercase tracking-wider text-void-black bg-canvas-white rounded-md px-2 py-0.5">
             Free
+          </span>
+        )}
+        {!c.freeTier && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-canvas-white bg-iron border border-[var(--border-strong)] rounded-md px-2 py-0.5">
+            <Lock className="w-2.5 h-2.5" />
+            Pro
           </span>
         )}
       </div>

@@ -143,7 +143,7 @@ export default function OnboardingModal({
             "absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-colors",
             voicePlaying
               ? "bg-iron text-canvas-white hover:bg-iron cursor-pointer"
-              : "text-slate-300 cursor-default"
+              : "text-ash-gray/40 cursor-default"
           )}
           aria-label={voicePlaying ? "Stop voice" : "Voice idle"}
           title={voicePlaying ? "Stop voice" : ""}

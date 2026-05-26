@@ -27,6 +27,8 @@ import { synthesize, pcmToWavBlob, isVoiceReady, prefetchVoice } from "@/lib/tts
 import { latexToSpeech } from "@/lib/latexToSpeech";
 import { celebrateLessonComplete } from "@/lib/confetti";
 import { useUiSounds } from "@/lib/sounds";
+import { noteLessonCompleted } from "@/lib/dailyGoal";
+import { hapticTap, hapticCelebrate } from "@/lib/haptics";
 import MessageContent from "./MessageContent";
 import CourseQAPanel from "./CourseQAPanel";
 import TutorAvatar, { type TutorAvatarState } from "./TutorAvatar";
@@ -35,6 +37,12 @@ import QuizCard from "./widgets/QuizCard";
 import FractionBar from "./widgets/FractionBar";
 import MatchPairs from "./widgets/MatchPairs";
 import SortSequence from "./widgets/SortSequence";
+import TrueFalse from "./widgets/TrueFalse";
+import FillBlank from "./widgets/FillBlank";
+import NumberLine from "./widgets/NumberLine";
+import Highlight from "./widgets/Highlight";
+import ReadingPassage from "./widgets/ReadingPassage";
+import TapLabel from "./widgets/TapLabel";
 
 /**
  * Linear lesson player driven by a pre-authored `steps[]` array.
@@ -190,6 +198,11 @@ export default function CoursePlayer({
   const [showIdleHint, setShowIdleHint] = useState(false);
   // Open state for the keyboard shortcuts overlay (triggered by `?` key).
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Hint state — count + most-recent text. Capped at 2 hints per step so
+  // the student can't farm the tutor into giving the answer outright.
+  const [hintCountByStep, setHintCountByStep] = useState<Record<number, number>>({});
+  const [hintText, setHintText] = useState<string | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
 
   // ─── Voice playback for the step script ──────────────────────────────
   const stopVoice = () => {
@@ -346,7 +359,13 @@ export default function CoursePlayer({
       step.type === "quiz" ||
       step.type === "fraction-bar" ||
       step.type === "match-pairs" ||
-      step.type === "sort-sequence";
+      step.type === "sort-sequence" ||
+      step.type === "true-false" ||
+      step.type === "fill-blank" ||
+      step.type === "number-line" ||
+      step.type === "highlight" ||
+      step.type === "reading-passage" ||
+      step.type === "tap-label";
     if (!isInteractive || stepDone) return;
 
     let timer: ReturnType<typeof setTimeout> = setTimeout(() => {
@@ -399,9 +418,9 @@ export default function CoursePlayer({
       setLessonFinished(true);
       playComplete();
       celebrateLessonComplete();
-      // Track session lesson count in sessionStorage so it resets when the
-      // browser tab is closed (= "today's session" approximation without
-      // querying timestamps). The card reads it on render.
+      hapticCelebrate();
+      // Track session + daily counters so the dashboard / wrap-up card
+      // both reflect the finish.
       if (typeof window !== "undefined") {
         try {
           const cur = Number(sessionStorage.getItem("session:lessonsDone") ?? "0");
@@ -409,6 +428,7 @@ export default function CoursePlayer({
         } catch {
           // ignore quota errors
         }
+        noteLessonCompleted();
       }
       onLessonComplete?.();
       return;
@@ -416,6 +436,7 @@ export default function CoursePlayer({
     const nextIdx = stepIdx + 1;
     setStepIdx(nextIdx);
     playAdvance();
+    hapticTap();
     onStepAdvance?.(nextIdx);
   };
 
@@ -426,6 +447,62 @@ export default function CoursePlayer({
     if (stepIdx === 0) return;
     setStepIdx((i) => Math.max(0, i - 1));
     setShowIdleHint(false);
+  };
+
+  /** Request a hint from the AI. Throttled to 2 hints per step. Shows the
+   *  hint text briefly + speaks it via Kokoro so it feels like the tutor
+   *  reached over to whisper. */
+  const requestHint = async () => {
+    if (hintLoading) return;
+    const used = hintCountByStep[stepIdx] ?? 0;
+    if (used >= 2) return;
+    setHintLoading(true);
+    try {
+      const res = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stepType: step?.type,
+          lessonTitle,
+          lessonObjective,
+          stepContext: summarizeStep(step),
+        }),
+      });
+      const data = (await res.json()) as { hint?: string };
+      const hint = data.hint ?? "Try reading the prompt once more — slowly.";
+      setHintText(hint);
+      setHintCountByStep((prev) => ({ ...prev, [stepIdx]: used + 1 }));
+      // Speak via Kokoro so the tutor's voice lands too — best effort.
+      if (voiceOn && audioUnlocked && instructor) {
+        try {
+          const { audio, samplingRate } = await synthesize(
+            hint,
+            "English",
+            instructor.voiceId
+          );
+          // Stop any current playback so the hint isn't talked over.
+          stopVoice();
+          const wav = pcmToWavBlob(audio, samplingRate);
+          const url = URL.createObjectURL(wav);
+          objectUrlRef.current = url;
+          const el = new Audio(url);
+          el.playbackRate = 1.05;
+          audioRef.current = el;
+          setVoicePlaying(true);
+          el.onended = () => stopVoice();
+          el.onerror = () => stopVoice();
+          await el.play().catch(() => stopVoice());
+        } catch {
+          // ignore voice failures — the text is still visible
+        }
+      }
+      // Auto-fade the bubble after 10s; student can re-tap for another.
+      setTimeout(() => setHintText(null), 10000);
+    } catch (e) {
+      console.warn("[CoursePlayer hint] failed:", e);
+    } finally {
+      setHintLoading(false);
+    }
   };
 
   /** Fired by QuizCard on every answer (right or wrong). Drives the
@@ -466,7 +543,7 @@ export default function CoursePlayer({
   }
 
   return (
-    <div className="min-h-screen bg-void-black flex flex-col">
+    <div className="min-h-screen bg-void-black flex flex-col inside-surface">
       {/* Header */}
       <header className="px-4 md:px-8 py-4 border-b border-[var(--border-subtle)] bg-void-black">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
@@ -619,26 +696,64 @@ export default function CoursePlayer({
               onAnswerResult={handleAnswerResult}
             />
 
-            {/* Idle hint — appears after 25s of inactivity on an unfinished
-                interactive step. Routes the student to the Q&A panel. */}
-            <AnimatePresence>
-              {showIdleHint && (
-                <motion.button
-                  key="idle-hint"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  onClick={() => {
-                    setShowIdleHint(false);
-                    setQaOpen(true);
-                  }}
-                  className="self-start inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-coal border border-[var(--border-strong)] text-canvas-white text-xs hover:bg-iron transition-colors"
+            {/* Hint button — always available on interactive steps, capped
+                at 2 hints per step. Also surfaces the idle-hint suggestion
+                when inactivity has been detected. */}
+            {(step.type === "quiz" ||
+              step.type === "fraction-bar" ||
+              step.type === "match-pairs" ||
+              step.type === "sort-sequence" ||
+              step.type === "true-false" ||
+              step.type === "fill-blank" ||
+              step.type === "number-line" ||
+              step.type === "highlight" ||
+              step.type === "reading-passage" ||
+              step.type === "tap-label") && !stepDone && (
+              <div className="self-start flex flex-col gap-2">
+                <button
+                  onClick={requestHint}
+                  disabled={hintLoading || (hintCountByStep[stepIdx] ?? 0) >= 2}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
+                    showIdleHint
+                      ? "bg-coal border-canvas-white text-canvas-white"
+                      : "bg-coal border-[var(--border-subtle)] text-ash-gray hover:border-[var(--border-strong)] hover:text-canvas-white",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                  aria-label="Get a hint from the tutor"
                 >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  Stuck? Ask your tutor for a hint.
-                </motion.button>
-              )}
-            </AnimatePresence>
+                  {hintLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Lightbulb className="w-3.5 h-3.5" />
+                  )}
+                  {hintLoading
+                    ? "Asking your tutor…"
+                    : (hintCountByStep[stepIdx] ?? 0) >= 2
+                      ? "No more hints — give it a try"
+                      : showIdleHint
+                        ? "Stuck? Tap for a hint"
+                        : `Need a hint?${
+                            (hintCountByStep[stepIdx] ?? 0) > 0
+                              ? ` (${2 - (hintCountByStep[stepIdx] ?? 0)} left)`
+                              : ""
+                          }`}
+                </button>
+                <AnimatePresence>
+                  {hintText && (
+                    <motion.div
+                      key={hintText}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      className="bg-iron border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-canvas-white max-w-[42ch]"
+                    >
+                      💡 {hintText}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Continue — springs in when the step becomes complete */}
             <AnimatePresence>
@@ -773,7 +888,18 @@ function avatarState(
   if (isEncouraging) return "encouraging";
   if (voicePlaying) return "talking";
   if (stepType === "checkpoint") return "celebrating";
-  if (stepType === "quiz" || stepType === "fraction-bar" || stepType === "match-pairs" || stepType === "sort-sequence") {
+  if (
+    stepType === "quiz" ||
+    stepType === "fraction-bar" ||
+    stepType === "match-pairs" ||
+    stepType === "sort-sequence" ||
+    stepType === "true-false" ||
+    stepType === "fill-blank" ||
+    stepType === "number-line" ||
+    stepType === "highlight" ||
+    stepType === "reading-passage" ||
+    stepType === "tap-label"
+  ) {
     return "thinking";
   }
   return "idle";
@@ -790,6 +916,24 @@ function summarizeStep(step: Step | undefined): string {
   }
   if (step.type === "sort-sequence") {
     parts.push(`Items in correct order: ${step.items.join(" → ")}`);
+  }
+  if (step.type === "true-false") {
+    parts.push(`Statement: ${step.statement} · Correct: ${step.answer ? "true" : "false"}`);
+  }
+  if (step.type === "fill-blank") {
+    parts.push(`Sentence: ${step.sentence} · Answer: ${step.answer}`);
+  }
+  if (step.type === "number-line") {
+    parts.push(`Number line ${step.min}..${step.max}, target ${step.target}${step.unit ?? ""}`);
+  }
+  if (step.type === "highlight") {
+    parts.push(`Passage: ${step.passage.slice(0, 200)} · Targets: ${step.targets.join(", ")}`);
+  }
+  if (step.type === "reading-passage") {
+    parts.push(`Passage: ${step.passage.slice(0, 200)} · Question: ${step.question}`);
+  }
+  if (step.type === "tap-label") {
+    parts.push(`Image labels: ${step.hotspots.map((h) => h.label).join(", ")}`);
   }
   return parts.join(" ");
 }
@@ -829,6 +973,111 @@ function StepBody({
           </ul>
         </div>
       ) : null;
+
+    case "true-false":
+      return (
+        <TrueFalse
+          statement={step.statement}
+          answer={step.answer}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
+
+    case "fill-blank":
+      return (
+        <FillBlank
+          sentence={step.sentence}
+          answer={step.answer}
+          alternatives={step.alternatives}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
+
+    case "number-line":
+      return (
+        <NumberLine
+          prompt={step.prompt}
+          min={step.min}
+          max={step.max}
+          target={step.target}
+          unit={step.unit}
+          tolerance={step.tolerance}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
+
+    case "highlight":
+      return (
+        <Highlight
+          prompt={step.prompt}
+          passage={step.passage}
+          targets={step.targets}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
+
+    case "reading-passage":
+      return (
+        <ReadingPassage
+          passage={step.passage}
+          question={step.question}
+          options={step.options}
+          correctKey={step.correctKey}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
+
+    case "tap-label":
+      return (
+        <TapLabel
+          prompt={step.prompt}
+          imageUrl={step.imageUrl}
+          hotspots={step.hotspots}
+          onAnswer={(isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
+        />
+      );
 
     case "checkpoint":
       return (
@@ -957,6 +1206,49 @@ function composeNarration(
       // they're stored in correct order, so narrating them would hand the
       // student the answer.
       if (step.prompt) lines.push(sub(step.prompt));
+      break;
+    }
+    case "true-false": {
+      lines.push(`True or false — ${sub(step.statement)}`);
+      break;
+    }
+    case "fill-blank": {
+      // Read the sentence aloud but say "blank" in place of ___ so the
+      // student knows where the gap is even without seeing the input.
+      const spoken = step.sentence.replace(/_{3,}/g, " blank ");
+      lines.push(`Fill in the blank. ${sub(spoken)}`);
+      break;
+    }
+    case "number-line": {
+      const fmt = (v: number) =>
+        `${Number.isInteger(v) ? v : v.toFixed(1)}${step.unit ?? ""}`;
+      lines.push(
+        step.prompt
+          ? sub(step.prompt)
+          : `Place the marker at ${fmt(step.target)} on the line.`
+      );
+      lines.push(`The line runs from ${fmt(step.min)} to ${fmt(step.max)}.`);
+      break;
+    }
+    case "highlight": {
+      if (step.prompt) lines.push(sub(step.prompt));
+      // We don't read the passage itself (could be long); the on-screen
+      // text is the reading task. The script + prompt set up the activity.
+      break;
+    }
+    case "reading-passage": {
+      // Read the question — the passage is on-screen for the student to
+      // read themselves. Reading it aloud would defeat the comprehension
+      // exercise.
+      lines.push(`Read the passage, then answer this. ${sub(step.question)}`);
+      step.options.forEach((opt) => {
+        lines.push(`${opt.key}: ${sub(opt.label)}`);
+      });
+      break;
+    }
+    case "tap-label": {
+      if (step.prompt) lines.push(sub(step.prompt));
+      else lines.push("Tap the right spot on the picture as the tutor asks.");
       break;
     }
   }

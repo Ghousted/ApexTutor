@@ -41,6 +41,12 @@ import {
   MatchPairsEditor,
   SortSequenceEditor,
   CheckpointEditor,
+  TrueFalseEditor,
+  FillBlankEditor,
+  NumberLineEditor,
+  HighlightEditor,
+  ReadingPassageEditor,
+  TapLabelEditor,
 } from "@/components/admin/StepEditors";
 import GenerateLessonModal from "@/components/admin/GenerateLessonModal";
 
@@ -126,6 +132,84 @@ const STEP_TYPES: Array<{
     },
   },
   {
+    type: "true-false",
+    label: "True / False",
+    description: "Binary judgement on a single statement.",
+    emoji: "✓✗",
+    defaults: {
+      type: "true-false",
+      script: "",
+      statement: "",
+      answer: true,
+    },
+  },
+  {
+    type: "fill-blank",
+    label: "Fill in the blank",
+    description: "Student types a missing word or number.",
+    emoji: "✎",
+    defaults: {
+      type: "fill-blank",
+      script: "",
+      sentence: "",
+      answer: "",
+    },
+  },
+  {
+    type: "number-line",
+    label: "Number line",
+    description: "Drag a marker to estimate a value.",
+    emoji: "📏",
+    defaults: {
+      type: "number-line",
+      script: "",
+      min: 0,
+      max: 100,
+      target: 50,
+    },
+  },
+  {
+    type: "highlight",
+    label: "Highlight words",
+    description: "Tap target words inside a short passage.",
+    emoji: "🖍️",
+    defaults: {
+      type: "highlight",
+      script: "",
+      passage: "",
+      targets: [],
+    },
+  },
+  {
+    type: "reading-passage",
+    label: "Reading passage",
+    description: "Read a passage, then answer a question.",
+    emoji: "📖",
+    defaults: {
+      type: "reading-passage",
+      script: "",
+      passage: "",
+      question: "",
+      options: [
+        { key: "A", label: "" },
+        { key: "B", label: "" },
+      ],
+      correctKey: "A",
+    },
+  },
+  {
+    type: "tap-label",
+    label: "Tap to label",
+    description: "Tap the right spot on an image for each label.",
+    emoji: "🎯",
+    defaults: {
+      type: "tap-label",
+      script: "",
+      imageUrl: "",
+      hotspots: [],
+    },
+  },
+  {
     type: "checkpoint",
     label: "Checkpoint",
     description: "Summary or transition beat.",
@@ -149,6 +233,12 @@ const EDITOR_REGISTRY: Record<
   "match-pairs": MatchPairsEditor as never,
   "sort-sequence": SortSequenceEditor as never,
   checkpoint: CheckpointEditor as never,
+  "true-false": TrueFalseEditor as never,
+  "fill-blank": FillBlankEditor as never,
+  "number-line": NumberLineEditor as never,
+  highlight: HighlightEditor as never,
+  "reading-passage": ReadingPassageEditor as never,
+  "tap-label": TapLabelEditor as never,
 };
 
 function stepMeta(type: Step["type"]) {

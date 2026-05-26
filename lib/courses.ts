@@ -68,6 +68,69 @@ export type StepCheckpoint = {
   script?: string;
 };
 
+export type StepTrueFalse = {
+  type: "true-false";
+  script: string;
+  statement: string;
+  /** Whether the statement is true. */
+  answer: boolean;
+};
+
+export type StepFillBlank = {
+  type: "fill-blank";
+  script: string;
+  /** Sentence containing `___` (three underscores) as the blank marker. */
+  sentence: string;
+  /** The canonical answer to display + check against. */
+  answer: string;
+  /** Acceptable alternative spellings/forms (case-insensitive). */
+  alternatives?: string[];
+};
+
+export type StepNumberLine = {
+  type: "number-line";
+  script: string;
+  prompt?: string;
+  min: number;
+  max: number;
+  /** The number the student is trying to place. */
+  target: number;
+  /** Optional unit shown next to numbers ("°C", "%", "min", etc.). */
+  unit?: string;
+  /** ± tolerance in absolute value; defaults to (max-min)/20. */
+  tolerance?: number;
+};
+
+export type StepHighlight = {
+  type: "highlight";
+  script: string;
+  prompt?: string;
+  /** Passage text; student taps individual words. */
+  passage: string;
+  /** Words that should be tapped (case + punctuation insensitive). */
+  targets: string[];
+};
+
+export type StepReadingPassage = {
+  type: "reading-passage";
+  script: string;
+  passage: string;
+  question: string;
+  options: Array<{ key: string; label: string }>;
+  correctKey: string;
+};
+
+export type StepTapLabel = {
+  type: "tap-label";
+  script: string;
+  prompt?: string;
+  /** Public URL of the image to label. */
+  imageUrl: string;
+  /** Hotspot centers as 0..1 fractions of image width/height with the label
+   *  the student is trying to identify. */
+  hotspots: Array<{ x: number; y: number; label: string }>;
+};
+
 export type Step =
   | StepIntro
   | StepExplainer
@@ -75,7 +138,13 @@ export type Step =
   | StepFractionBar
   | StepMatch
   | StepSortSequence
-  | StepCheckpoint;
+  | StepCheckpoint
+  | StepTrueFalse
+  | StepFillBlank
+  | StepNumberLine
+  | StepHighlight
+  | StepReadingPassage
+  | StepTapLabel;
 
 // ─── Course + Lesson docs ───────────────────────────────────────────────
 
@@ -86,6 +155,9 @@ export interface CourseDoc {
   description: string;
   /** Free-form copy explaining what the student will learn. */
   overview?: string;
+  /** Concrete "by the end you'll be able to…" outcomes. Shown on the course
+   *  detail page in place of the prose overview when present. */
+  outcomes?: string[];
   /** Grade band the course is aimed at. Optional. */
   gradeBand?: { min: number; max: number };
   /** Instructor ID — references the static lib/instructors.ts. */
@@ -135,6 +207,9 @@ function snapToCourse(d: FirebaseFirestore.QueryDocumentSnapshot): CourseDoc {
     subject: data.subject ?? "",
     description: data.description ?? "",
     overview: data.overview ?? undefined,
+    outcomes: Array.isArray(data.outcomes)
+      ? (data.outcomes as unknown[]).map(String).filter(Boolean)
+      : undefined,
     gradeBand: data.gradeBand ?? undefined,
     instructorId: data.instructorId ?? null,
     status: data.status ?? "draft",

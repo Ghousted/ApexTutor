@@ -262,6 +262,86 @@ html {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
+/* ─── Inside-surface decoration ───────────────────────────────────
+   Authed pages (catalog, course detail, lesson player, account) get a
+   soft atmospheric backdrop instead of flat void-black. Two layered
+   pieces: a faint dot grid for technical-tool feel, and a slow-drifting
+   aurora blob in the top-right corner. Both are decoration only
+   (pointer-events: none) and slot in behind the content via a single
+   `.inside-surface` class on the page <main>. */
+.inside-surface {
+  position: relative;
+  isolation: isolate;
+}
+.inside-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at top, #000 35%, transparent 80%);
+          mask-image: radial-gradient(ellipse at top, #000 35%, transparent 80%);
+  pointer-events: none;
+}
+.inside-surface::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -10%;
+  right: -10%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 720px;
+  max-height: 720px;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.10), transparent 60%);
+  filter: blur(60px);
+  pointer-events: none;
+  animation: inside-aurora-drift 22s ease-in-out infinite;
+}
+@keyframes inside-aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+  50%      { transform: translate3d(-8%, 6%, 0) scale(1.1); opacity: 1; }
+}
+
+/* Thin gradient accent bar — used as a top edge on hero cards to add a
+   subtle "this is important" beat without breaking the monochrome rule. */
+.card-accent-top {
+  position: relative;
+  isolation: isolate;
+}
+.card-accent-top::before {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Interactive card lift — adds a soft white halo on hover. Pair with
+   transition-shadow on the element you apply this to. */
+.card-lift {
+  transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.18s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 32px -8px rgba(255, 255, 255, 0.12),
+              0 8px 24px -4px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inside-surface::after { animation: none !important; }
+  .card-lift { transition: none !important; }
+  .card-lift:hover { transform: none !important; }
+}
+
 /* Skeleton shimmer — used by Skeleton component during page-level loads.
    Animates a soft white sweep across an iron-coloured block. */
 @keyframes skeleton-sweep {

@@ -118,7 +118,7 @@ export default function AdminCoursesClient() {
         </div>
       ) : courses.length === 0 ? (
         <div className="bg-coal border border-dashed border-[var(--border-subtle)] rounded-[14px] p-10 text-center">
-          <Library className="w-8 h-8 mx-auto text-slate-300 mb-3" />
+          <Library className="w-8 h-8 mx-auto text-ash-gray mb-3" />
           <p className="text-sm text-ash-gray mb-1">No courses yet</p>
           <p className="text-xs text-ash-gray">
             Click <strong>New course</strong> to author your first one.
@@ -160,7 +160,7 @@ export default function AdminCoursesClient() {
                       {c.lessonCount} lesson{c.lessonCount === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <Pencil className="w-4 h-4 text-slate-300 group-hover:text-ash-gray shrink-0" />
+                  <Pencil className="w-4 h-4 text-ash-gray group-hover:text-ash-gray shrink-0" />
                 </Link>
               </li>
             );

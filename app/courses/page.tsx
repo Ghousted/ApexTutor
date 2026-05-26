@@ -27,7 +27,7 @@ export default async function CoursesCatalogPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-void-black">
+    <main className="min-h-screen bg-void-black inside-surface">
       <header className="px-6 md:px-10 py-5 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)]">
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />

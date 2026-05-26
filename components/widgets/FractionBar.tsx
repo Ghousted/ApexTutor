@@ -96,59 +96,94 @@ export default function FractionBar({
         by clicking cells.
       </p>
 
+      {/* Bar — each cell shows three layers:
+           - base (clickable)
+           - student's fill (white) on click
+           - target preview (faint stripe pattern) for the first `num` cells
+             so the student has a visual target without seeing the answer
+             pre-filled. Toggles to fully white as the student matches it. */}
       <div className="flex w-full rounded-lg overflow-hidden border-2 border-[var(--border-subtle)] mb-4">
-        {filled.map((isFilled, i) => (
-          <button
-            key={i}
-            ref={(el) => {
-              cellRefs.current[i] = el;
-            }}
-            onClick={() => toggle(i)}
-            disabled={submitted}
-            aria-label={`Cell ${i + 1}`}
-            className={cn(
-              "flex-1 h-16 transition-colors border-r border-[var(--border-subtle)] last:border-r-0",
-              isFilled
-                ? "bg-canvas-white"
-                : "bg-coal hover:bg-iron cursor-pointer",
-              submitted && !isCorrect && isFilled && "bg-rose-400",
-              submitted && isCorrect && "bg-canvas-white"
-            )}
-          />
-        ))}
+        {filled.map((isFilled, i) => {
+          const isTarget = i < num;
+          return (
+            <button
+              key={i}
+              ref={(el) => {
+                cellRefs.current[i] = el;
+              }}
+              onClick={() => toggle(i)}
+              disabled={submitted}
+              aria-label={`Cell ${i + 1}`}
+              className={cn(
+                "relative flex-1 h-16 transition-colors border-r border-[var(--border-subtle)] last:border-r-0",
+                isFilled
+                  ? "bg-canvas-white"
+                  : "bg-coal hover:bg-iron cursor-pointer",
+                submitted && !isCorrect && isFilled && "bg-rose-400",
+                submitted && isCorrect && "bg-canvas-white"
+              )}
+            >
+              {/* Target hint — faint diagonal stripes over the cells that
+                  SHOULD be filled, only while the student is still
+                  working (not after submit, and not when the cell is
+                  already filled). */}
+              {!isFilled && !submitted && isTarget && (
+                <span
+                  aria-hidden
+                  className="absolute inset-0 opacity-25"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, #ffffff 0 2px, transparent 2px 8px)",
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-ash-gray">
           Filled:{" "}
           <span className="font-semibold text-canvas-white">
             {filledCount}/{denom}
           </span>
         </p>
-        <button
-          onClick={handleCheck}
-          disabled={submitted || filledCount === 0}
-          className={cn(
-            "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
-            submitted
-              ? isCorrect
-                ? "bg-canvas-white text-void-black"
-                : "bg-canvas-white text-void-black"
-              : "bg-canvas-white hover:opacity-90 text-void-black disabled:bg-iron disabled:text-ash-gray"
+        <div className="flex items-center gap-1.5">
+          {filledCount > 0 && !submitted && (
+            <button
+              onClick={() => setFilled(Array(denom).fill(false))}
+              className="text-xs px-2.5 py-1 rounded-md text-ash-gray hover:text-canvas-white hover:bg-iron transition-colors"
+              title="Clear all cells"
+            >
+              Reset
+            </button>
           )}
-        >
-          {submitted ? (
-            isCorrect ? (
-              <>
-                <Check className="w-3.5 h-3.5" /> Correct
-              </>
+          <button
+            onClick={handleCheck}
+            disabled={submitted || filledCount === 0}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
+              submitted
+                ? isCorrect
+                  ? "bg-canvas-white text-void-black"
+                  : "bg-canvas-white text-void-black"
+                : "bg-canvas-white hover:opacity-90 text-void-black disabled:bg-iron disabled:text-ash-gray"
+            )}
+          >
+            {submitted ? (
+              isCorrect ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Correct
+                </>
+              ) : (
+                "Not quite"
+              )
             ) : (
-              "Not quite"
-            )
-          ) : (
-            "Check"
-          )}
-        </button>
+              "Check"
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

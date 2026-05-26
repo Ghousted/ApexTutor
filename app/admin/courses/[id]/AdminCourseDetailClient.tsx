@@ -323,7 +323,7 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
                       {(l.steps?.length ?? 0)} step{(l.steps?.length ?? 0) === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-ash-gray shrink-0" />
                 </Link>
               </li>
             ))}

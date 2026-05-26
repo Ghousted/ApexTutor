@@ -313,7 +313,7 @@ export default function AdminTextbooksClient() {
           <BookOpen className="w-4 h-4 text-ash-gray" />
           <h2 className="text-sm font-semibold text-canvas-white">Indexed textbooks</h2>
           {loadingList && (
-            <Loader2 className="w-3 h-3 ml-auto animate-spin text-slate-300" />
+            <Loader2 className="w-3 h-3 ml-auto animate-spin text-ash-gray" />
           )}
         </header>
 
@@ -384,6 +384,6 @@ function PhaseStatus({
 function StatusBadge({ status }: { status: Source["status"] }) {
   if (status === "ready") return <span className="text-canvas-white">ready</span>;
   if (status === "processing")
-    return <span className="text-amber-600">processing</span>;
+    return <span className="text-canvas-white">processing</span>;
   return <span className="text-canvas-white">failed</span>;
 }
