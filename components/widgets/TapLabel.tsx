@@ -40,7 +40,20 @@ export default function TapLabel({
   const [hit, setHit] = useState<Set<number>>(new Set());
   // Brief "wrong tap" pulse position so the student sees their tap registered.
   const [wrongPulse, setWrongPulse] = useState<{ x: number; y: number; key: number } | null>(null);
+  // Image load state — distinguishes "loading" from "failed" so the
+  // student gets a clearer message than a broken-image icon.
+  const [imgState, setImgState] = useState<"loading" | "ok" | "error">("loading");
   const { playCorrect, playWrong } = useUiSounds();
+
+  // Route external images through our proxy so hot-link protection on the
+  // origin host doesn't break the lesson. Same-origin (relative) URLs
+  // pass through unchanged.
+  const proxiedUrl = useMemo(() => {
+    if (!imageUrl) return "";
+    if (imageUrl.startsWith("/")) return imageUrl;
+    if (imageUrl.startsWith(window.location.origin)) return imageUrl;
+    return `/api/img-proxy?url=${encodeURIComponent(imageUrl)}`;
+  }, [imageUrl]);
 
   // Randomise the asking order so consecutive playthroughs feel different
   // without changing the underlying hotspots themselves.
@@ -141,16 +154,38 @@ export default function TapLabel({
         className="relative rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-iron mb-3 select-none"
         style={{ aspectRatio: "16 / 10" }}
       >
+        {/* Loading + error states. The proxy strips Referer headers that
+            many image hosts use to block hot-linking, but truly invalid
+            URLs still 502 — surface that to the admin in the player too. */}
+        {imgState === "loading" && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-xs text-ash-gray">Loading image…</span>
+          </div>
+        )}
+        {imgState === "error" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+            <p className="text-sm text-canvas-white font-medium mb-1">
+              Couldn&apos;t load this image
+            </p>
+            <p className="text-[11px] text-ash-gray">
+              The URL is unreachable or the host blocked the request. Ask
+              the admin to use a direct image link (ending in .png / .jpg).
+            </p>
+          </div>
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}
-          src={imageUrl}
+          src={proxiedUrl}
           alt=""
           onClick={handleImageClick}
+          onLoad={() => setImgState("ok")}
+          onError={() => setImgState("error")}
           draggable={false}
           className={cn(
             "absolute inset-0 w-full h-full object-contain cursor-crosshair",
-            allDone && "cursor-default"
+            allDone && "cursor-default",
+            imgState !== "ok" && "opacity-0"
           )}
         />
         {/* Confirmed hits — small white dots at each correctly-tapped point. */}

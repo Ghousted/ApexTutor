@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Sparkles } from "lucide-react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { motion, useReducedMotion } from "motion/react";
+import gsap from "gsap";
 import { auth } from "@/lib/firebase";
 import Logo from "./Logo";
 import AuthModal from "./AuthModal";
 import TutorAvatar from "./TutorAvatar";
+import SplitText from "./SplitText";
 
 const OUTLINED_QUESTIONS = [
   "How to study addition and subtraction?",
@@ -100,6 +102,35 @@ export default function HeroSection() {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
+
+  // ScrollTrigger: parallax-fade the hero content as the user scrolls into
+  // the Features section. Pure decoration — keeps the eye moving instead
+  // of dropping abruptly to the next section.
+  useEffect(() => {
+    if (reduced) return;
+    let st: import("gsap/ScrollTrigger").ScrollTrigger | undefined;
+    (async () => {
+      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
+      gsap.registerPlugin(ScrollTrigger);
+      const target = document.getElementById("hero-content");
+      if (!target) return;
+      st = ScrollTrigger.create({
+        trigger: target,
+        start: "top top",
+        end: "+=400",
+        scrub: 0.6,
+        onUpdate: (self) => {
+          gsap.set(target, {
+            opacity: 1 - self.progress,
+            y: self.progress * -40,
+          });
+        },
+      });
+    })();
+    return () => {
+      st?.kill();
+    };
+  }, [reduced]);
 
   useEffect(() => {
     if (user && pendingQuery && !navigatedRef.current) {
@@ -230,6 +261,7 @@ export default function HeroSection() {
 
       {/* ─── Layer 10: Content ───────────────────────────────────────── */}
       <motion.div
+        id="hero-content"
         className="relative z-10 max-w-3xl mx-auto text-center w-full"
         initial="hidden"
         animate="visible"
@@ -253,18 +285,20 @@ export default function HeroSection() {
           </div>
         </motion.div>
 
-        <motion.h1
-          variants={fadeUp}
-          className="text-shimmer font-bold mb-7 leading-[1.05]"
-          style={{
-            fontSize: "clamp(40px, 7vw, 72px)",
-            letterSpacing: "-1.08px",
-          }}
-        >
-          99% cheaper than getting
-          <br />
-          a real-world tutor.
-        </motion.h1>
+        <motion.div variants={fadeUp} className="mb-7">
+          <SplitText
+            as="h1"
+            text="99% cheaper than getting a real-world tutor."
+            by="word"
+            className="text-canvas-white font-bold leading-[1.05] block"
+            style={{
+              fontSize: "clamp(40px, 7vw, 72px)",
+              letterSpacing: "-1.08px",
+            }}
+            staggerMs={55}
+            delay={400}
+          />
+        </motion.div>
 
         <motion.p
           variants={fadeUp}
@@ -301,7 +335,7 @@ export default function HeroSection() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 360, damping: 22 }}
-                className="m-1.5 px-4 py-2.5 bg-canvas-white text-void-black rounded-lg font-medium text-sm flex items-center gap-1.5 shrink-0"
+                className="m-1.5 px-4 py-2.5 bg-canvas-white text-void-black rounded-lg font-medium text-sm flex items-center gap-1.5 shrink-0 btn-shimmer tap-squish"
               >
                 Send <ArrowUp className="w-3.5 h-3.5" />
               </motion.button>

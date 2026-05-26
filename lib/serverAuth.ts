@@ -36,6 +36,33 @@ export async function getServerSession(): Promise<ServerSession | null> {
   }
 }
 
+/** Server-side read of the student's enrollment for a course. Used by the
+ *  /learn page to enforce progressive unlocking — students can only open
+ *  lessons up through the next uncompleted one. */
+export async function getServerEnrollment(
+  uid: string,
+  courseId: string
+): Promise<{ completedLessonIds: string[] } | null> {
+  try {
+    const snap = await adminDb()
+      .collection("users")
+      .doc(uid)
+      .collection("enrollments")
+      .doc(courseId)
+      .get();
+    if (!snap.exists) return null;
+    const data = snap.data() ?? {};
+    return {
+      completedLessonIds: Array.isArray(data.completedLessonIds)
+        ? (data.completedLessonIds as string[])
+        : [],
+    };
+  } catch (e) {
+    console.error("[serverAuth] enrollment read failed:", e);
+    return null;
+  }
+}
+
 /** Returns true if the user has an active subscription right now. Reads
  *  the `subscription` map on the user doc via the Admin SDK so it
  *  bypasses client security rules. */

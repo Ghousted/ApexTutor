@@ -10,6 +10,8 @@ import { auth, db } from "@/lib/firebase";
 import { getEnrollment, type EnrollmentDoc } from "@/lib/enrollments";
 import { getInstructor } from "@/lib/instructors";
 import { useDailyGoal, useActivityStrip } from "@/lib/dailyGoal";
+import { useCountUp } from "@/lib/useCountUp";
+import SplitText from "@/components/SplitText";
 import { cn } from "@/lib/utils";
 
 export interface CatalogCourse {
@@ -156,19 +158,16 @@ export default function CoursesCatalogClient({
           <p className="text-[11px] uppercase tracking-wider font-semibold text-ash-gray mb-1">
             {timeOfDayGreeting()}
           </p>
-          <h2
+          <SplitText
+            as="h2"
+            text={studentName ? studentName : "Welcome back"}
+            by="word"
             className="font-bold text-canvas-white truncate"
             style={{ fontSize: "clamp(24px, 3.5vw, 36px)", letterSpacing: "-0.54px", lineHeight: 1.2 }}
-          >
-            {studentName ? studentName : "Welcome back"}
-          </h2>
+            staggerMs={70}
+          />
         </div>
-        {topStreak > 0 && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-iron border border-[var(--border-strong)] text-canvas-white shrink-0">
-            <Flame className="w-4 h-4" />
-            <span className="text-sm font-semibold">{topStreak}-day streak</span>
-          </div>
-        )}
+        {topStreak > 0 && <StreakChip target={topStreak} />}
       </motion.div>
 
       {/* Stats row — daily goal + 7-day activity strip side by side on
@@ -240,6 +239,17 @@ export default function CoursesCatalogClient({
   );
 }
 
+/** Animated streak count — the number tweens up smoothly when it changes. */
+function StreakChip({ target }: { target: number }) {
+  const display = useCountUp(target);
+  return (
+    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-iron border border-[var(--border-strong)] text-canvas-white shrink-0">
+      <Flame className="w-4 h-4" />
+      <span className="text-sm font-semibold">{display}-day streak</span>
+    </div>
+  );
+}
+
 /** 7-day GitHub-style activity strip. Each cell lights based on whether
  *  the student did a lesson that day. Today is the rightmost cell. */
 function ActivityStrip() {
@@ -297,6 +307,7 @@ function DailyGoalCard() {
   const goal = useDailyGoal();
   const pct = Math.min(100, Math.round((goal.lessonsDone / goal.target) * 100));
   const done = goal.lessonsDone >= goal.target;
+  const lessonsDoneDisplay = useCountUp(goal.lessonsDone);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -333,8 +344,8 @@ function DailyGoalCard() {
         </p>
         <p className="text-sm font-medium text-canvas-white">
           {done
-            ? `${goal.lessonsDone} lesson${goal.lessonsDone === 1 ? "" : "s"} done — nice.`
-            : `${goal.lessonsDone} of ${goal.target} lesson${goal.target === 1 ? "" : "s"}`}
+            ? `${lessonsDoneDisplay} lesson${goal.lessonsDone === 1 ? "" : "s"} done — nice.`
+            : `${lessonsDoneDisplay} of ${goal.target} lesson${goal.target === 1 ? "" : "s"}`}
         </p>
       </div>
       {done && (

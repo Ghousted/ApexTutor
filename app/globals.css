@@ -199,6 +199,58 @@ html {
   animation: text-shimmer 6s linear infinite;
 }
 
+/* Primary CTA shimmer sweep on hover — a soft white highlight that travels
+   left-to-right across the button. Apply via .btn-shimmer in addition to
+   the button's normal classes. Bound to ::after so it never interferes
+   with the button's content. */
+@keyframes btn-shimmer-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
+}
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 100%
+  );
+  width: 40%;
+  transform: translateX(-200%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.btn-shimmer:hover::after {
+  opacity: 1;
+  animation: btn-shimmer-sweep 1s ease-out;
+}
+
+/* Tactile squish on tap — for primary CTAs that already have rounded
+   corners. Briefly compresses vertically + extends horizontally, then
+   springs back. Combine with `active:` Tailwind variant for the trigger. */
+.tap-squish:active {
+  animation: tap-squish 0.22s ease-out;
+}
+@keyframes tap-squish {
+  0%   { transform: scale(1, 1); }
+  35%  { transform: scale(1.025, 0.92); }
+  70%  { transform: scale(0.98, 1.02); }
+  100% { transform: scale(1, 1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-shimmer:hover::after,
+  .tap-squish:active { animation: none !important; }
+}
+
 /* Conic-gradient border that rotates — wraps the hero search input for a
    subtle "AI is active" energy. The double-box trick keeps the interior
    fully opaque while the border rotates. */

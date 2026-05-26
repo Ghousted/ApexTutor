@@ -131,6 +131,38 @@ export type StepTapLabel = {
   hotspots: Array<{ x: number; y: number; label: string }>;
 };
 
+export type StepPieDivider = {
+  type: "pie-divider";
+  script: string;
+  prompt?: string;
+  /** Number of equal slices the pie is divided into (the denominator). */
+  slices: number;
+  /** How many slices the student needs to select / "eat" (the numerator).
+   *  Set to 0 + freeCut: true if you want them to draw their own cuts. */
+  selectTarget: number;
+};
+
+export type StepBalanceScale = {
+  type: "balance-scale";
+  script: string;
+  prompt?: string;
+  /** Items already weighing down the LEFT pan — given. */
+  leftFixed: Array<{ label: string; weight: number }>;
+  /** Pool of items the student can drag onto the RIGHT pan. */
+  options: Array<{ id: string; label: string; weight: number }>;
+  /** The combined weight on right must equal sum of left to "balance". */
+};
+
+export type StepLetterTiles = {
+  type: "letter-tiles";
+  script: string;
+  prompt?: string;
+  /** Target word. Student must spell this by dragging letter tiles. */
+  word: string;
+  /** Optional decoy letters to mix into the tile pool. */
+  decoys?: string[];
+};
+
 export type Step =
   | StepIntro
   | StepExplainer
@@ -144,7 +176,10 @@ export type Step =
   | StepNumberLine
   | StepHighlight
   | StepReadingPassage
-  | StepTapLabel;
+  | StepTapLabel
+  | StepPieDivider
+  | StepBalanceScale
+  | StepLetterTiles;
 
 // ─── Course + Lesson docs ───────────────────────────────────────────────
 

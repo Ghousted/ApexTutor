@@ -1,18 +1,19 @@
 import Link from "next/link";
-import { GraduationCap, BookOpen, BarChart3, ArrowRight } from "lucide-react";
+import { GraduationCap, BarChart3, ArrowRight, Library } from "lucide-react";
 
 const SHORTCUTS = [
+  {
+    href: "/admin/courses",
+    icon: Library,
+    title: "Courses",
+    description: "Author + publish courses and their lessons.",
+  },
   {
     href: "/admin/instructors",
     icon: GraduationCap,
     title: "Instructors",
-    description: "Review the current roster — Math, Science. Manage personas and voice settings.",
-  },
-  {
-    href: "/admin/textbooks",
-    icon: BookOpen,
-    title: "Textbooks",
-    description: "Upload PDFs per instructor. Powers retrieval-grounded answers in chat.",
+    description:
+      "Review the current roster and pick a DiceBear avatar per professor.",
   },
   {
     href: "/admin/analytics",
@@ -30,7 +31,7 @@ export default function AdminDashboardPage() {
           Admin dashboard
         </h1>
         <p className="text-sm text-ash-gray mt-1">
-          Manage instructors, ingest textbooks, and review usage.
+          Manage courses, instructors, and review usage.
         </p>
       </header>
 

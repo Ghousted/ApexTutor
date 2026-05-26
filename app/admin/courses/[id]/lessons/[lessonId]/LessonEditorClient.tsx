@@ -47,6 +47,9 @@ import {
   HighlightEditor,
   ReadingPassageEditor,
   TapLabelEditor,
+  PieDividerEditor,
+  BalanceScaleEditor,
+  LetterTilesEditor,
 } from "@/components/admin/StepEditors";
 import GenerateLessonModal from "@/components/admin/GenerateLessonModal";
 
@@ -210,6 +213,45 @@ const STEP_TYPES: Array<{
     },
   },
   {
+    type: "pie-divider",
+    label: "Pizza slice",
+    description: "Slice a pie into N pieces. Great for fractions + division.",
+    emoji: "🍕",
+    defaults: {
+      type: "pie-divider",
+      script: "",
+      slices: 8,
+      selectTarget: 3,
+    },
+  },
+  {
+    type: "balance-scale",
+    label: "Balance scale",
+    description: "Drag weights onto a scale until it balances.",
+    emoji: "⚖️",
+    defaults: {
+      type: "balance-scale",
+      script: "",
+      leftFixed: [{ label: "5", weight: 5 }],
+      options: [
+        { id: "t1", label: "1", weight: 1 },
+        { id: "t2", label: "2", weight: 2 },
+        { id: "t3", label: "5", weight: 5 },
+      ],
+    },
+  },
+  {
+    type: "letter-tiles",
+    label: "Letter tiles",
+    description: "Tap letter tiles to spell the target word.",
+    emoji: "🔤",
+    defaults: {
+      type: "letter-tiles",
+      script: "",
+      word: "",
+    },
+  },
+  {
     type: "checkpoint",
     label: "Checkpoint",
     description: "Summary or transition beat.",
@@ -239,6 +281,9 @@ const EDITOR_REGISTRY: Record<
   highlight: HighlightEditor as never,
   "reading-passage": ReadingPassageEditor as never,
   "tap-label": TapLabelEditor as never,
+  "pie-divider": PieDividerEditor as never,
+  "balance-scale": BalanceScaleEditor as never,
+  "letter-tiles": LetterTilesEditor as never,
 };
 
 function stepMeta(type: Step["type"]) {

@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   GraduationCap,
-  BookOpen,
   BarChart3,
   ArrowLeft,
   LogOut,
@@ -19,7 +18,6 @@ const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/courses", label: "Courses", icon: Library },
   { href: "/admin/instructors", label: "Instructors", icon: GraduationCap },
-  { href: "/admin/textbooks", label: "Textbooks", icon: BookOpen },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];
 

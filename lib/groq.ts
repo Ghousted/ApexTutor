@@ -1,8 +1,5 @@
 import Groq from "groq-sdk";
 import { getInstructor } from "./instructors";
-import { cosineSimilarity } from "./chunking";
-import { getAllChunks, type ChunkDoc } from "./textbooks";
-import { embed } from "./embeddings";
 import type { Lesson } from "./lessons";
 
 /** Lesson context passed into the prompt to make the AI drive the lesson. */
@@ -86,76 +83,6 @@ export interface ChatMessage {
 const TEXT_MODEL = "llama-3.1-8b-instant";
 const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
-// RAG retrieval tuning.
-const RAG_TOP_K = 5;          // how many chunks to inject per query
-const RAG_MIN_SCORE = 0.35;   // cosine similarity floor — below this, treat as no match
-
-// Heuristic for detecting "follow-up" messages where RAG retrieval is wasted
-// work: the user is acknowledging, asking for more detail on what was just
-// said, or otherwise relying on conversation history rather than asking a
-// brand-new question that needs fresh textbook grounding.
-//
-// Conservative on purpose: it's much better to run RAG unnecessarily than to
-// skip it when we needed it. So we only return true when the message clearly
-// looks conversational.
-const FOLLOW_UP_OPENER = /^(ok|okay|yes|yeah|yep|yup|no|nope|nah|sure|cool|nice|thanks|salamat|sige|oo|hindi pa|got it|gets|gets ko|i see|i get it|i understand|naiintindihan|alam ko na|continue|go on|keep going|next|more|tell me more|explain more|simulan na|ulit|again|huh|what|why)\b/i;
-
-function looksLikeFollowUp(
-  lastUserMessage: string,
-  history: ChatMessage[]
-): boolean {
-  // No prior assistant turn → there's nothing to follow up ON.
-  const hasAssistantHistory = history.some(
-    (m) => m.role === "assistant" && m.content
-  );
-  if (!hasAssistantHistory) return false;
-
-  const text = lastUserMessage.trim();
-  if (!text) return true;
-  const wordCount = text.split(/\s+/).filter(Boolean).length;
-
-  // Very short with no question mark → almost certainly an acknowledgment.
-  if (wordCount <= 4 && !text.includes("?")) return true;
-
-  // Starts with a conversational opener AND is short → follow-up.
-  if (FOLLOW_UP_OPENER.test(text) && wordCount <= 8) return true;
-
-  return false;
-}
-
-// Per-instructor chunk cache. Vercel functions stay warm for a few minutes,
-// so subsequent chat turns reuse the cached chunks instead of re-fetching the
-// whole collection from Firestore (expensive at scale).
-const chunkCache = new Map<string, { chunks: ChunkDoc[]; expiresAt: number }>();
-const CHUNK_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-async function getChunksWithCache(instructorId: string): Promise<ChunkDoc[]> {
-  const now = Date.now();
-  const cached = chunkCache.get(instructorId);
-  if (cached && cached.expiresAt > now) return cached.chunks;
-  const chunks = await getAllChunks(instructorId);
-  chunkCache.set(instructorId, { chunks, expiresAt: now + CHUNK_CACHE_TTL_MS });
-  return chunks;
-}
-
-/** Retrieve top-K most similar chunks for a query. Empty array if no chunks
- *  exist for the instructor (i.e., no textbook uploaded yet). */
-async function retrieveRagContext(
-  instructorId: string,
-  query: string
-): Promise<ChunkDoc[]> {
-  const chunks = await getChunksWithCache(instructorId);
-  if (chunks.length === 0) return [];
-
-  const queryVec = await embed(query);
-  const scored = chunks
-    .map((c) => ({ chunk: c, score: cosineSimilarity(queryVec, c.embedding) }))
-    .filter((s) => s.score >= RAG_MIN_SCORE)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, RAG_TOP_K);
-  return scored.map((s) => s.chunk);
-}
-
 function formatLessonBlock(ctx: LessonContext): string {
   const { lesson, gradeLevel, isFirstTurnOfLesson, studentName } = ctx;
   const nameClause = studentName ? ` Address them as "${studentName}".` : "";
@@ -191,14 +118,6 @@ ${opener}
 "That's right! Do you understand?"  — no widget, generic chatbot. AVOID.`;
 }
 
-function formatRagContext(chunks: ChunkDoc[]): string {
-  if (chunks.length === 0) return "";
-  const blocks = chunks
-    .map((c, i) => `Excerpt ${i + 1}:\n${c.text}`)
-    .join("\n\n");
-  return `\n\n# Reference material\n\nThe following excerpts were retrieved from this instructor's reference material. Use them as your primary source of truth — paraphrase and teach from them naturally.\n\nIMPORTANT: Do NOT mention page numbers, sources, "the textbook says", "according to my reference", "the excerpts show", or any phrasing that exposes that you're working from retrieved material. Speak as a tutor who simply knows this content. The student should never realize the answer was retrieved.\n\nIf the excerpts don't cover the question, answer from general knowledge without acknowledging the gap.\n\n${blocks}`;
-}
-
 export async function streamChatResponse(
   messages: ChatMessage[],
   subject?: string,
@@ -222,36 +141,6 @@ export async function streamChatResponse(
 ) {
   const instructor = getInstructor(instructorId);
   const personaBlock = instructor ? instructor.personaPrompt + "\n\n" : "";
-
-  // RAG retrieval: only the latest user message drives retrieval. We pick
-  // the last user message in the history; if none exists (shouldn't happen
-  // in normal flow), retrieval is skipped silently.
-  //
-  // Optimization: skip retrieval entirely on follow-up messages ("ok", "more
-  // please", "I don't get it"). The conversation history already carries the
-  // chunks from the original retrieval, so a second fetch is wasted work and
-  // adds 200ms–4s of latency depending on cache state.
-  let ragBlock = "";
-  if (instructor) {
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    if (lastUser?.content) {
-      const priorHistory = messages.slice(0, messages.indexOf(lastUser));
-      if (looksLikeFollowUp(lastUser.content, priorHistory)) {
-        console.log(`[RAG] skipping retrieval — follow-up: "${lastUser.content.slice(0, 60)}"`);
-      } else {
-        try {
-          const ctxChunks = await retrieveRagContext(
-            instructor.id,
-            lastUser.content
-          );
-          ragBlock = formatRagContext(ctxChunks);
-        } catch (e) {
-          // RAG is non-essential — log and continue without it.
-          console.error("[RAG] retrieval failed, continuing without context:", e);
-        }
-      }
-    }
-  }
 
   const contextLine = topic
     ? `\n\nCurrent context: Subject: ${subject || instructor?.subject || "General"}, Grade Level: ${gradeLevel || "Not specified"}, Topic: ${topic}`
@@ -286,8 +175,7 @@ export async function streamChatResponse(
     SYSTEM_PROMPT +
     contextLine +
     languageLine +
-    lessonBlock +
-    ragBlock;
+    lessonBlock;
 
   const hasImages = Array.isArray(images) && images.length > 0;
 

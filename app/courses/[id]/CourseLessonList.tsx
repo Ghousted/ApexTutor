@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, BookOpen, ArrowRight } from "lucide-react";
+import { Check, BookOpen, ArrowRight, Lock } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "motion/react";
 import { auth } from "@/lib/firebase";
@@ -97,13 +97,25 @@ export default function CourseLessonList({
         {lessons.map((l, i) => {
           const isCompleted = completed.has(l.id);
           const isCurrent = l.id === currentId;
+          // Locked = future lesson that hasn't been completed AND isn't
+          // the current "next up" — matches the server-side gate so the
+          // UI doesn't lie to the student about what they can open.
+          const isLocked = !isCompleted && !isCurrent;
           return (
             <LessonRow
               key={l.id}
               courseId={courseId}
               lesson={l}
               index={i}
-              state={isCompleted ? "completed" : isCurrent ? "current" : "upcoming"}
+              state={
+                isCompleted
+                  ? "completed"
+                  : isCurrent
+                    ? "current"
+                    : isLocked
+                      ? "locked"
+                      : "upcoming"
+              }
             />
           );
         })}
@@ -121,8 +133,45 @@ function LessonRow({
   courseId: string;
   lesson: LessonLite;
   index: number;
-  state: "completed" | "current" | "upcoming";
+  state: "completed" | "current" | "upcoming" | "locked";
 }) {
+  // Locked rows render as <div> not <Link>, no hover lift, dimmed text.
+  // The cursor + the Lock icon make it visually clear why nothing happens.
+  if (state === "locked") {
+    return (
+      <li className="relative">
+        <div
+          className="px-5 py-3.5 flex items-start gap-3 cursor-not-allowed opacity-60 select-none"
+          title="Finish the previous lesson to unlock this."
+          aria-disabled
+        >
+          <span className="w-7 h-7 rounded-md bg-iron border border-[var(--border-subtle)] text-ash-gray flex items-center justify-center shrink-0">
+            <Lock className="w-3.5 h-3.5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-sm font-semibold truncate text-ash-gray">
+                {lesson.title}
+              </p>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-ash-gray bg-iron border border-[var(--border-subtle)] rounded-md px-1.5 py-0.5 shrink-0">
+                Locked
+              </span>
+            </div>
+            {lesson.objective && (
+              <p className="text-xs text-ash-gray/60 line-clamp-2">
+                {lesson.objective}
+              </p>
+            )}
+            <p className="text-[11px] text-ash-gray/50 mt-1">
+              ~{estimateMinutes(lesson.stepCount)} min · finish lesson{" "}
+              {index} first
+            </p>
+          </div>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <motion.li
       whileHover={{ backgroundColor: "rgba(38,38,38,0.6)", x: 2 }}
@@ -135,7 +184,6 @@ function LessonRow({
         href={`/learn/${courseId}/${lesson.id}`}
         className="block px-5 py-3.5 flex items-start gap-3"
       >
-        {/* Status icon */}
         {state === "completed" ? (
           <span className="w-7 h-7 rounded-md bg-canvas-white text-void-black flex items-center justify-center shrink-0">
             <Check className="w-4 h-4" strokeWidth={3} />

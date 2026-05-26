@@ -288,7 +288,7 @@ export default function LandingHeader() {
                 </button>
                 <button
                   onClick={() => openAuth("signup")}
-                  className="px-5 py-2.5 bg-canvas-white hover:opacity-90 text-void-black rounded-lg text-sm font-medium transition-opacity shadow-md"
+                  className="px-5 py-2.5 bg-canvas-white hover:opacity-90 text-void-black rounded-lg text-sm font-medium transition-opacity shadow-md btn-shimmer tap-squish"
                 >
                   Sign up
                 </button>

@@ -16,14 +16,18 @@ import {
   Highlighter,
   BookOpenText,
   Target,
+  Pizza,
+  Scale,
+  Keyboard,
 } from "lucide-react";
 import { getCourse, listLessons } from "@/lib/courses";
 import { getInstructor } from "@/lib/instructors";
 import Logo from "@/components/Logo";
 import VoicePrefetch from "@/components/VoicePrefetch";
-import CourseLessonList from "./CourseLessonList";
+import CourseLessonPath from "./CourseLessonPath";
 import TutorIntroCard from "./TutorIntroCard";
 import CourseStartCTA from "./CourseStartCTA";
+import CourseProgress from "./CourseProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +119,11 @@ export default async function CourseDetailPage({
           )}
         </div>
 
+        {/* Progress + re-engagement — promotes lesson completion + last-visit
+            into a top-of-page beat. Renders nothing for never-started or
+            anonymous viewers. */}
+        <CourseProgress courseId={course.id} totalLessons={lessons.length} />
+
         {/* Meet your tutor — voice preview, bigger avatar */}
         <TutorIntroCard instructorId={instructor?.id ?? null} />
 
@@ -144,10 +153,11 @@ export default async function CourseDetailPage({
           </div>
         ) : null}
 
-        {/* Lessons — client component reads enrollment to mark progress */}
+        {/* Lessons — path visualization with progress state per node */}
         <div className="mb-6">
-          <CourseLessonList
+          <CourseLessonPath
             courseId={course.id}
+            instructorId={course.instructorId ?? null}
             lessons={lessons.map((l) => ({
               id: l.id,
               title: l.title,
@@ -183,6 +193,9 @@ export default async function CourseDetailPage({
                 { type: "highlight", label: "Highlight words", icon: Highlighter },
                 { type: "reading-passage", label: "Reading", icon: BookOpenText },
                 { type: "tap-label", label: "Tap to label", icon: Target },
+                { type: "pie-divider", label: "Pizza slice", icon: Pizza },
+                { type: "balance-scale", label: "Balance scale", icon: Scale },
+                { type: "letter-tiles", label: "Letter tiles", icon: Keyboard },
                 { type: "explainer", label: "Explainers", icon: Sparkles },
                 { type: "checkpoint", label: "Checkpoints", icon: Check },
               ]

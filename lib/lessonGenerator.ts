@@ -299,6 +299,70 @@ function coerceStep(value: unknown): Step | null {
         hotspots,
       };
     }
+    case "pie-divider": {
+      const slices = Math.max(2, Math.min(16, Number(obj.slices) || 0));
+      const selectTarget = Math.max(0, Math.min(slices, Number(obj.selectTarget) || 0));
+      if (!slices) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        slices,
+        selectTarget,
+      };
+    }
+    case "balance-scale": {
+      const leftFixed = Array.isArray(obj.leftFixed)
+        ? obj.leftFixed
+            .map((x) => {
+              if (!x || typeof x !== "object") return null;
+              const o = x as Record<string, unknown>;
+              const label = String(o.label ?? "").trim();
+              const weight = Number(o.weight);
+              if (!label || !Number.isFinite(weight)) return null;
+              return { label, weight };
+            })
+            .filter((x): x is { label: string; weight: number } => x !== null)
+        : [];
+      const options = Array.isArray(obj.options)
+        ? obj.options
+            .map((x, i) => {
+              if (!x || typeof x !== "object") return null;
+              const o = x as Record<string, unknown>;
+              const label = String(o.label ?? "").trim();
+              const weight = Number(o.weight);
+              const id = String(o.id ?? `t${i + 1}`).trim();
+              if (!label || !Number.isFinite(weight)) return null;
+              return { id, label, weight };
+            })
+            .filter((x): x is { id: string; label: string; weight: number } => x !== null)
+        : [];
+      if (leftFixed.length === 0 || options.length === 0) return null;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        leftFixed,
+        options,
+      };
+    }
+    case "letter-tiles": {
+      const word = String(obj.word ?? "").trim().toUpperCase();
+      if (!/^[A-Z]+$/.test(word)) return null;
+      const decoys = Array.isArray(obj.decoys)
+        ? obj.decoys
+            .map(String)
+            .map((s) => s.trim().toUpperCase())
+            .filter((s) => /^[A-Z]$/.test(s))
+        : undefined;
+      return {
+        type,
+        script: String(obj.script ?? ""),
+        prompt: obj.prompt ? String(obj.prompt) : undefined,
+        word,
+        decoys,
+      };
+    }
     default:
       return null;
   }

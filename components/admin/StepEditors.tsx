@@ -721,7 +721,11 @@ export function TapLabelEditor({
         {step.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={step.imageUrl}
+            src={
+              step.imageUrl.startsWith("/")
+                ? step.imageUrl
+                : `/api/img-proxy?url=${encodeURIComponent(step.imageUrl)}`
+            }
             alt=""
             className="mt-2 max-h-40 object-contain rounded border border-[var(--border-subtle)] bg-iron"
           />
@@ -805,6 +809,275 @@ export function TapLabelEditor({
           For a center spot use 0.5 / 0.5. Tap tolerance is ±10%.
         </p>
       </div>
+    </div>
+  );
+}
+
+export function PieDividerEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "pie-divider" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro for the slicing task…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Show 3/8 of the pizza."
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <NumberField
+          label="Slices (denominator)"
+          value={step.slices}
+          onChange={(v) =>
+            onChange({ ...step, slices: Math.max(2, Math.min(16, v || 2)) })
+          }
+        />
+        <NumberField
+          label="Select target (numerator)"
+          value={step.selectTarget}
+          onChange={(v) =>
+            onChange({
+              ...step,
+              selectTarget: Math.max(0, Math.min(step.slices, v || 0)),
+            })
+          }
+        />
+      </div>
+      <p className="text-[10px] text-ash-gray leading-relaxed">
+        Tip: 8 slices / select 3 = &quot;Show 3/8&quot;. 4 slices / select 4 =
+        &quot;Eat the whole pizza&quot;.
+      </p>
+    </div>
+  );
+}
+
+export function BalanceScaleEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "balance-scale" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Balance the equation: left side = ?"
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Left pan (fixed)
+        </label>
+        <div className="flex flex-col gap-2">
+          {step.leftFixed.map((x, i) => (
+            <div key={i} className="grid grid-cols-[1fr,80px,32px] gap-2 items-center">
+              <input
+                value={x.label}
+                onChange={(e) => {
+                  const leftFixed = step.leftFixed.map((p, j) =>
+                    j === i ? { ...p, label: e.target.value } : p
+                  );
+                  onChange({ ...step, leftFixed });
+                }}
+                placeholder="Label (e.g. 'x' or '5kg')"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm outline-none focus:border-[var(--border-strong)]"
+              />
+              <input
+                type="number"
+                value={x.weight}
+                onChange={(e) => {
+                  const leftFixed = step.leftFixed.map((p, j) =>
+                    j === i ? { ...p, weight: Number(e.target.value) } : p
+                  );
+                  onChange({ ...step, leftFixed });
+                }}
+                placeholder="weight"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+              />
+              <button
+                onClick={() =>
+                  onChange({
+                    ...step,
+                    leftFixed: step.leftFixed.filter((_, j) => j !== i),
+                  })
+                }
+                className="text-xs text-ash-gray hover:text-canvas-white"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() =>
+            onChange({
+              ...step,
+              leftFixed: [...step.leftFixed, { label: "", weight: 1 }],
+            })
+          }
+          className="text-xs px-3 py-1 mt-2 bg-iron border border-[var(--border-subtle)] rounded-md text-canvas-white hover:bg-[#2e2e2e]"
+        >
+          + Add left item
+        </button>
+      </div>
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Tile pool (right pan)
+        </label>
+        <div className="flex flex-col gap-2">
+          {step.options.map((o, i) => (
+            <div key={i} className="grid grid-cols-[80px,1fr,80px,32px] gap-2 items-center">
+              <input
+                value={o.id}
+                onChange={(e) => {
+                  const options = step.options.map((p, j) =>
+                    j === i ? { ...p, id: e.target.value } : p
+                  );
+                  onChange({ ...step, options });
+                }}
+                placeholder="id"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+              />
+              <input
+                value={o.label}
+                onChange={(e) => {
+                  const options = step.options.map((p, j) =>
+                    j === i ? { ...p, label: e.target.value } : p
+                  );
+                  onChange({ ...step, options });
+                }}
+                placeholder="Label"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm outline-none focus:border-[var(--border-strong)]"
+              />
+              <input
+                type="number"
+                value={o.weight}
+                onChange={(e) => {
+                  const options = step.options.map((p, j) =>
+                    j === i ? { ...p, weight: Number(e.target.value) } : p
+                  );
+                  onChange({ ...step, options });
+                }}
+                placeholder="weight"
+                className="bg-iron border border-[var(--border-subtle)] rounded-md px-2 py-1.5 text-canvas-white text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+              />
+              <button
+                onClick={() =>
+                  onChange({
+                    ...step,
+                    options: step.options.filter((_, j) => j !== i),
+                  })
+                }
+                className="text-xs text-ash-gray hover:text-canvas-white"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() =>
+            onChange({
+              ...step,
+              options: [
+                ...step.options,
+                { id: `t${step.options.length + 1}`, label: "", weight: 1 },
+              ],
+            })
+          }
+          className="text-xs px-3 py-1 mt-2 bg-iron border border-[var(--border-subtle)] rounded-md text-canvas-white hover:bg-[#2e2e2e]"
+        >
+          + Add tile
+        </button>
+        <p className="text-[10px] text-ash-gray mt-2 leading-relaxed">
+          Tile id must be unique. Same tile can be dropped multiple times,
+          so a pool of [1, 5] can solve any whole-number target.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function LetterTilesEditor({
+  step,
+  onChange,
+}: EditorProps<Extract<Step, { type: "letter-tiles" }>>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ScriptField
+        value={step.script}
+        onChange={(script) => onChange({ ...step, script })}
+        placeholder="Tutor intro for the spelling task…"
+      />
+      <div>
+        <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+          Prompt (optional)
+        </label>
+        <input
+          value={step.prompt ?? ""}
+          onChange={(e) => onChange({ ...step, prompt: e.target.value })}
+          placeholder="Spell the part of a cell that holds genetic material."
+          className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm outline-none focus:border-[var(--border-strong)]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+            Target word
+          </label>
+          <input
+            value={step.word}
+            onChange={(e) =>
+              onChange({ ...step, word: e.target.value.toUpperCase() })
+            }
+            placeholder="NUCLEUS"
+            className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider font-semibold text-ash-gray mb-1 block">
+            Decoy letters (comma)
+          </label>
+          <input
+            value={(step.decoys ?? []).join(", ")}
+            onChange={(e) =>
+              onChange({
+                ...step,
+                decoys: e.target.value
+                  .split(",")
+                  .map((s) => s.trim().toUpperCase())
+                  .filter((s) => /^[A-Z]$/.test(s)),
+              })
+            }
+            placeholder="K, M, R"
+            className="w-full bg-iron border border-[var(--border-subtle)] rounded-md px-3 py-2 text-canvas-white placeholder-ash-gray text-sm font-mono outline-none focus:border-[var(--border-strong)]"
+          />
+        </div>
+      </div>
+      <p className="text-[10px] text-ash-gray leading-relaxed">
+        Target letters auto-populate the pool. Decoys make it harder by
+        adding wrong letters the student must ignore.
+      </p>
     </div>
   );
 }

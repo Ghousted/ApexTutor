@@ -49,16 +49,5 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ─── Textbook RAG data — server-only ────────────────────────────────
-    // instructorDocs/{instructorId}/sources/*
-    // instructorDocs/{instructorId}/chunks/*
-    //
-    // All reads + writes go through the admin SDK (chat /api/chat and the
-    // /api/admin/textbooks/* routes), which BYPASSES these rules. Blocking
-    // direct client access is defense-in-depth: prevents anyone snooping
-    // the embeddings or wiping content from a browser console.
-    match /instructorDocs/{document=**} {
-      allow read, write: if false;
-    }
   }
 }

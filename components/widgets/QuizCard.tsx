@@ -5,7 +5,7 @@ import { CheckCircle2, Mic, XCircle } from "lucide-react";
 import gsap from "gsap";
 import { cn } from "@/lib/utils";
 import type { QuizWidget } from "@/lib/widgetParser";
-import { celebrateBurst } from "@/lib/confetti";
+import { celebrateBurst, celebrateSideBurst } from "@/lib/confetti";
 import { useUiSounds } from "@/lib/sounds";
 import { hapticTap, hapticError } from "@/lib/haptics";
 import { pickEncouragement } from "@/lib/encouragement";
@@ -176,10 +176,14 @@ export default function QuizCard({
     if (isCorrect) {
       playCorrect();
       hapticTap();
-      // Confetti from the centre of the card.
-      const rect = cardRef.current?.getBoundingClientRect();
+      // Side-burst FROM the option that was tapped — feels like the cheer
+      // is reacting to the student's specific choice, not the whole card.
+      const tapEl = document.querySelector<HTMLElement>(
+        `[data-quiz-opt="${key}"]`
+      );
+      const rect = (tapEl ?? cardRef.current)?.getBoundingClientRect();
       if (rect) {
-        celebrateBurst({
+        celebrateSideBurst({
           x: (rect.left + rect.width / 2) / window.innerWidth,
           y: (rect.top + rect.height / 2) / window.innerHeight,
         });
@@ -252,6 +256,7 @@ export default function QuizCard({
           return (
             <button
               key={opt.key}
+              data-quiz-opt={opt.key}
               onClick={() => handlePick(opt.key, opt.label)}
               disabled={picked !== null}
               className={cn(
