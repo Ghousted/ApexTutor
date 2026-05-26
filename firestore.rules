@@ -40,6 +40,15 @@ service cloud.firestore {
       }
     }
 
+    // ─── Admin-published config — read by all signed-in users ──────────
+    // Admins write these docs via the Admin SDK (server-side routes only).
+    // Clients can read so the configured values (e.g., instructor avatar
+    // overrides) take effect across all sessions without a redeploy.
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // ─── Textbook RAG data — server-only ────────────────────────────────
     // instructorDocs/{instructorId}/sources/*
     // instructorDocs/{instructorId}/chunks/*

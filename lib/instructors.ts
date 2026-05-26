@@ -17,6 +17,10 @@ export interface Instructor {
   accentColor: string; // tailwind-friendly hex used for ring/bg accents
   bgGradient: string;  // CSS gradient string for the card background
   voiceId: string;     // Kokoro voice id for English TTS
+  /** DiceBear style id (see PROFESSOR_STYLES in components/DiceBearAvatar). */
+  avatarStyle: string;
+  /** DiceBear seed — combined with style this uniquely determines the look. */
+  avatarSeed: string;
   ttsLangDefault?: TtsLang; // unused for now — kept for future per-instructor language
   /**
    * Whether this instructor is available on the free tier. Free users see
@@ -38,10 +42,12 @@ export const INSTRUCTORS: Instructor[] = [
     accentColor: "#6366F1", // indigo-500
     bgGradient: "linear-gradient(135deg, #eef2ff 0%, #c7d2fe 100%)",
     voiceId: "af_heart",
+    avatarStyle: "personas",
+    avatarSeed: "maria-math-tutor",
     freeTier: true,
     personaPrompt: `# Your identity
 
-You are **Professor Maria**, a Math specialist for Filipino grade-school and high-school students. You love numbers, patterns, and showing students that math is everywhere — from jeepney fares to basketball scoring averages.
+You are **Professor Maria**, a Math specialist for grade-school and high-school students. You love numbers, patterns, and showing students that math is everywhere — from grocery prices to basketball scoring averages.
 
 # Your specialty
 
@@ -66,10 +72,12 @@ Never refuse to answer — just keep your off-topic answer short and always poin
     accentColor: "#10B981", // emerald-500
     bgGradient: "linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%)",
     voiceId: "am_michael",
+    avatarStyle: "personas",
+    avatarSeed: "marco-science-tutor",
     freeTier: false,
     personaPrompt: `# Your identity
 
-You are **Professor Marco**, a Science specialist for Filipino grade-school and high-school students. You're endlessly curious about how things work — from the water cycle to chemical bonds to why halo-halo melts in a specific order.
+You are **Professor Marco**, a Science specialist for grade-school and high-school students. You're endlessly curious about how things work — from the water cycle to chemical bonds to why an ice cream cone melts from the top down.
 
 # Your specialty
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, X, Mail, Lock, User as UserIcon, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
   signInWithGoogle,
@@ -43,8 +44,6 @@ export default function AuthModal({
     }
   }, [open, defaultMode]);
 
-  if (!open) return null;
-
   const isSignUp = mode === "signup";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,11 +79,25 @@ export default function AuthModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-7">
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 340, damping: 26 }}
+            className="relative bg-coal rounded-[14px] shadow-2xl w-full max-w-md p-7"
+          >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-iron text-ash-gray hover:text-canvas-white/90"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
@@ -92,22 +105,22 @@ export default function AuthModal({
 
         {isSignUp ? (
           <div className="mb-5">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-semibold uppercase tracking-wider mb-3">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-iron text-canvas-white text-[11px] font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3 h-3" />
               Free forever
             </div>
-            <h2 className="text-2xl font-bold text-ink mb-1.5">
+            <h2 className="text-2xl font-bold text-canvas-white mb-1.5">
               Create your child&apos;s account
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ash-gray">
               {reason ||
                 "Parents sign up here. After this, we'll ask a few quick things about your child to set up their tutor."}
             </p>
           </div>
         ) : (
           <div className="mb-5">
-            <h2 className="text-2xl font-bold text-ink mb-1.5">Welcome back</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-2xl font-bold text-canvas-white mb-1.5">Welcome back</h2>
+            <p className="text-sm text-ash-gray">
               {reason ||
                 "Sign in to pick up your conversations right where you left off."}
             </p>
@@ -117,7 +130,7 @@ export default function AuthModal({
         <button
           onClick={handleGoogle}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2.5 px-5 py-3 mb-4 border border-slate-200 rounded-xl text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2.5 px-5 py-3 mb-4 border border-[var(--border-subtle)] rounded-lg text-canvas-white/90 font-medium text-sm hover:bg-coal transition-colors disabled:opacity-50"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -141,9 +154,9 @@ export default function AuthModal({
         </button>
 
         <div className="flex items-center gap-3 my-4">
-          <div className="flex-1 h-px bg-slate-200" />
-          <span className="text-xs text-slate-400 uppercase tracking-wider">or</span>
-          <div className="flex-1 h-px bg-slate-200" />
+          <div className="flex-1 h-px bg-iron" />
+          <span className="text-xs text-ash-gray uppercase tracking-wider">or</span>
+          <div className="flex-1 h-px bg-iron" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -179,7 +192,7 @@ export default function AuthModal({
           />
 
           {error && (
-            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-canvas-white bg-coal border border-[var(--border-subtle)] rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -187,34 +200,36 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-xl font-medium text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-canvas-white hover:opacity-90 disabled:opacity-50 text-void-black rounded-lg font-medium text-sm transition-colors"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSignUp ? "Create my account" : "Sign in"}
           </button>
 
           {isSignUp && (
-            <p className="text-[11px] text-center text-slate-400 leading-relaxed">
+            <p className="text-[11px] text-center text-ash-gray leading-relaxed">
               By creating an account you agree to our Terms of Service and
               Privacy Policy.
             </p>
           )}
         </form>
 
-        <p className="text-center text-sm text-slate-500 mt-5">
+        <p className="text-center text-sm text-ash-gray mt-5">
           {isSignUp ? "Already have an account? " : "New to Apex Tutor? "}
           <button
             onClick={() => {
               setMode(isSignUp ? "signin" : "signup");
               setError("");
             }}
-            className="text-indigo-600 hover:text-indigo-700 font-medium"
+            className="text-canvas-white hover:text-canvas-white font-medium"
           >
             {isSignUp ? "Sign in" : "Create a free account"}
           </button>
         </p>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -231,11 +246,11 @@ function Field(props: {
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 px-3 py-2.5 border border-slate-200 rounded-xl bg-white focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all",
+        "flex items-center gap-2.5 px-3 py-2.5 border border-[var(--border-subtle)] rounded-lg bg-coal focus-within:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-canvas-white transition-all",
         props.disabled && "opacity-60"
       )}
     >
-      <span className="text-slate-400">{props.icon}</span>
+      <span className="text-ash-gray">{props.icon}</span>
       <input
         type={props.type}
         placeholder={props.placeholder}
@@ -244,7 +259,7 @@ function Field(props: {
         disabled={props.disabled}
         required={props.required}
         autoComplete={props.autoComplete}
-        className="flex-1 bg-transparent text-sm text-ink placeholder-slate-400 outline-none"
+        className="flex-1 bg-transparent text-sm text-canvas-white placeholder-ash-gray outline-none"
       />
     </div>
   );

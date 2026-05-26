@@ -36,6 +36,24 @@ export interface EnrollmentDoc {
   currentLessonId: string | null;
   completedLessonIds: string[];
   lessons: Record<string, LessonProgress>;
+  /** Consecutive-day streak of completing at least one lesson. */
+  streak: number;
+  /** YYYY-MM-DD of the last lesson the student completed in this course.
+   *  Drives streak math without dragging Timestamp objects into the client. */
+  lastCompletionDate: string | null;
+}
+
+function todayKey(): string {
+  // Local-time YYYY-MM-DD. Streaks should feel like "you came back today",
+  // not "you came back in UTC."
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function dayBefore(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 
 function ref(uid: string, courseId: string) {
@@ -78,6 +96,9 @@ export async function getEnrollment(
           )
         )
       : {},
+    streak: Number(data.streak ?? 0),
+    lastCompletionDate:
+      typeof data.lastCompletionDate === "string" ? data.lastCompletionDate : null,
   };
 }
 
@@ -123,18 +144,55 @@ export async function setLessonProgress(
   } as Record<string, FieldValue | unknown>);
 }
 
-/** Mark a lesson as completed and append it to completedLessonIds. */
+export interface CompletionResult {
+  /** New streak value AFTER applying this completion. */
+  streak: number;
+  /** True only when this completion incremented the streak (i.e., first
+   *  completion of a new day). Useful for the UI to fire a "+1 day" toast. */
+  streakIncreased: boolean;
+}
+
+/** Mark a lesson as completed and append it to completedLessonIds. Returns
+ *  the new streak so the UI can celebrate. */
 export async function markLessonComplete(
   uid: string,
   courseId: string,
   lessonId: string,
   nextLessonId: string | null
-): Promise<void> {
+): Promise<CompletionResult> {
+  // Read the current streak/lastCompletionDate to compute next state. We
+  // do this client-side rather than via a Firestore transaction — collisions
+  // are unlikely (one student finishing two lessons in the same race) and
+  // the worst case is a 1-off streak count.
+  const snap = await getDoc(ref(uid, courseId));
+  const data = snap.exists() ? snap.data() : {};
+  const today = todayKey();
+  const lastDate = typeof data.lastCompletionDate === "string" ? data.lastCompletionDate : null;
+  const prevStreak = Number(data.streak ?? 0);
+
+  let nextStreak = prevStreak;
+  let streakIncreased = false;
+  if (lastDate === today) {
+    // Already completed a lesson today — no change.
+    nextStreak = Math.max(prevStreak, 1);
+  } else if (lastDate === dayBefore(today)) {
+    nextStreak = prevStreak + 1;
+    streakIncreased = true;
+  } else {
+    // Gap, or first ever completion — restart at 1.
+    nextStreak = 1;
+    streakIncreased = true;
+  }
+
   await updateDoc(ref(uid, courseId), {
     lastVisitedAt: serverTimestamp(),
     currentLessonId: nextLessonId,
     completedLessonIds: arrayUnion(lessonId),
     [`lessons.${lessonId}.completed`]: true,
     [`lessons.${lessonId}.completedAt`]: serverTimestamp(),
+    streak: nextStreak,
+    lastCompletionDate: today,
   } as Record<string, FieldValue | unknown>);
+
+  return { streak: nextStreak, streakIncreased };
 }

@@ -87,17 +87,17 @@ export default function GenerateLessonModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+      <div className="bg-coal rounded-[14px] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-iron text-canvas-white flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-ink">Generate lesson with AI</h3>
+            <h3 className="text-base font-bold text-canvas-white">Generate lesson with AI</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:bg-slate-100"
+            className="p-1 rounded-full text-ash-gray hover:bg-iron"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -106,7 +106,7 @@ export default function GenerateLessonModal({
 
         {!preview ? (
           <>
-            <p className="text-sm text-slate-500 mb-4 leading-relaxed">
+            <p className="text-sm text-ash-gray mb-4 leading-relaxed">
               We&apos;ll draft a 5-7 step linear lesson mixing intro, explainer,
               interactive widgets, and a checkpoint. You can edit anything afterward.
             </p>
@@ -138,7 +138,7 @@ export default function GenerateLessonModal({
                       </option>
                     ))}
                   </select>
-                  <span className="text-xs text-slate-400">to</span>
+                  <span className="text-xs text-ash-gray">to</span>
                   <select
                     value={gradeMax}
                     onChange={(e) => {
@@ -158,7 +158,7 @@ export default function GenerateLessonModal({
               </Field>
 
               {error && (
-                <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                <p className="text-sm text-canvas-white bg-coal border border-[var(--border-subtle)] rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -166,7 +166,7 @@ export default function GenerateLessonModal({
               <button
                 onClick={submit}
                 disabled={generating || !topic.trim()}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white rounded-xl font-medium text-sm transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-canvas-white hover:opacity-90 disabled:opacity-60 text-void-black rounded-lg font-medium text-sm transition-colors"
               >
                 {generating ? (
                   <>
@@ -184,17 +184,17 @@ export default function GenerateLessonModal({
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-500 mb-3">
+            <p className="text-sm text-ash-gray mb-3">
               Draft of <strong>{preview.length}</strong> step
               {preview.length === 1 ? "" : "s"}. Add them to your lesson?
             </p>
-            <ol className="border border-slate-200 rounded-xl divide-y divide-slate-100 mb-4 max-h-64 overflow-y-auto">
+            <ol className="border border-[var(--border-subtle)] rounded-lg divide-y divide-[var(--border-subtle)] mb-4 max-h-64 overflow-y-auto">
               {preview.map((s, i) => (
                 <li key={i} className="px-3 py-2 text-xs">
-                  <span className="font-semibold text-slate-700 mr-2">{i + 1}.</span>
-                  <span className="font-mono text-indigo-600">{s.type}</span>
+                  <span className="font-semibold text-canvas-white/90 mr-2">{i + 1}.</span>
+                  <span className="font-mono text-canvas-white">{s.type}</span>
                   {"script" in s && s.script && (
-                    <span className="text-slate-500 ml-2">
+                    <span className="text-ash-gray ml-2">
                       — {s.script.slice(0, 100)}
                       {s.script.length > 100 ? "…" : ""}
                     </span>
@@ -206,20 +206,20 @@ export default function GenerateLessonModal({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onGenerated(preview, "append")}
-                className="px-4 py-2.5 bg-white border border-slate-200 hover:border-indigo-400 text-ink rounded-xl font-medium text-sm transition-colors"
+                className="px-4 py-2.5 bg-coal border border-[var(--border-subtle)] hover:border-[var(--border-strong)] text-canvas-white rounded-lg font-medium text-sm transition-colors"
               >
                 Append after existing
               </button>
               <button
                 onClick={() => onGenerated(preview, "replace")}
-                className="px-4 py-2.5 bg-ink hover:bg-slate-800 text-white rounded-xl font-medium text-sm transition-colors"
+                className="px-4 py-2.5 bg-canvas-white hover:opacity-90 text-void-black rounded-lg font-medium text-sm transition-colors"
               >
                 Replace all steps
               </button>
             </div>
             <button
               onClick={() => setPreview(null)}
-              className="w-full mt-2 text-xs text-slate-500 hover:text-ink"
+              className="w-full mt-2 text-xs text-ash-gray hover:text-canvas-white"
             >
               ← Try a different topic
             </button>
@@ -250,7 +250,7 @@ export default function GenerateLessonModal({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
         {label}
       </label>
       {children}

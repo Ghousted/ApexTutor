@@ -125,24 +125,24 @@ export default function CourseQAPanel({
       />
       <aside
         ref={panelRef}
-        className="relative w-full max-w-md h-full bg-white shadow-2xl flex flex-col"
+        className="relative w-full max-w-md h-full bg-coal border-l border-[var(--border-subtle)] shadow-2xl flex flex-col"
       >
         {/* Header */}
-        <header className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <header className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-iron border border-[var(--border-strong)] text-canvas-white flex items-center justify-center shrink-0">
               <MessageCircle className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">Ask a question</p>
-              <p className="text-[11px] text-slate-500 truncate">
+              <p className="text-sm font-semibold text-canvas-white">Ask a question</p>
+              <p className="text-[11px] text-ash-gray truncate">
                 Pauses the lesson — won&apos;t mess up your progress.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-ink hover:bg-slate-100"
+            className="p-1.5 rounded-md text-ash-gray hover:text-canvas-white hover:bg-iron"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -152,12 +152,12 @@ export default function CourseQAPanel({
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
           {messages.length === 0 && (
-            <div className="text-center py-6">
-              <Sparkles className="w-6 h-6 mx-auto text-slate-300 mb-2" />
-              <p className="text-sm font-medium text-ink">
+            <div className="text-center py-8">
+              <Sparkles className="w-6 h-6 mx-auto text-ash-gray mb-2" />
+              <p className="text-sm font-medium text-canvas-white">
                 Stuck on something?
               </p>
-              <p className="text-xs text-slate-500 max-w-[28ch] mx-auto leading-relaxed mt-1">
+              <p className="text-xs text-ash-gray max-w-[28ch] mx-auto leading-relaxed mt-1">
                 Ask anything about this lesson and your tutor will explain.
               </p>
             </div>
@@ -166,7 +166,7 @@ export default function CourseQAPanel({
             <Bubble key={i} msg={m} />
           ))}
           {streaming && messages[messages.length - 1]?.content === "" && (
-            <div className="flex items-center gap-2 text-slate-400 text-xs pl-1">
+            <div className="flex items-center gap-2 text-ash-gray text-xs pl-1">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Thinking…
             </div>
@@ -175,8 +175,8 @@ export default function CourseQAPanel({
         </div>
 
         {/* Composer */}
-        <footer className="px-4 py-3 border-t border-slate-100">
-          <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 focus-within:border-indigo-400">
+        <footer className="px-4 py-3 border-t border-[var(--border-subtle)]">
+          <div className="flex items-end gap-2 bg-iron border border-[var(--border-subtle)] rounded-lg px-3 py-2 focus-within:border-[var(--border-strong)]">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -189,16 +189,16 @@ export default function CourseQAPanel({
               placeholder="Type your question…"
               rows={1}
               disabled={streaming}
-              className="flex-1 bg-transparent outline-none text-sm text-ink placeholder-slate-400 resize-none max-h-32 py-1"
+              className="flex-1 bg-transparent outline-none text-sm text-canvas-white placeholder-ash-gray resize-none max-h-32 py-1"
             />
             <button
               onClick={send}
               disabled={!input.trim() || streaming}
               className={cn(
-                "p-2 rounded-full transition-colors shrink-0",
+                "p-2 rounded-md transition-opacity shrink-0",
                 input.trim() && !streaming
-                  ? "bg-indigo-500 hover:bg-indigo-600 text-white"
-                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  ? "bg-canvas-white hover:opacity-90 text-void-black"
+                  : "bg-iron text-ash-gray cursor-not-allowed"
               )}
               aria-label="Send"
             >
@@ -209,7 +209,7 @@ export default function CourseQAPanel({
               )}
             </button>
           </div>
-          <p className="text-[10px] text-slate-400 text-center mt-2">
+          <p className="text-[10px] text-ash-gray text-center mt-2">
             The lesson pauses while you chat. Close to resume.
           </p>
         </footer>
@@ -221,13 +221,13 @@ export default function CourseQAPanel({
 function Bubble({ msg }: { msg: Msg }) {
   if (msg.role === "user") {
     return (
-      <div className="self-end max-w-[85%] bg-indigo-500 text-white rounded-2xl rounded-tr-sm px-3.5 py-2 text-sm">
+      <div className="self-end max-w-[85%] bg-canvas-white text-void-black rounded-[14px] rounded-tr-sm px-3.5 py-2 text-sm">
         {msg.content}
       </div>
     );
   }
   return (
-    <div className="self-start max-w-[90%] bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm">
+    <div className="self-start max-w-[90%] bg-iron border border-[var(--border-subtle)] text-canvas-white rounded-[14px] rounded-tl-sm px-3.5 py-2 text-sm">
       {msg.content ? <MessageContent text={msg.content} /> : <span>&nbsp;</span>}
     </div>
   );

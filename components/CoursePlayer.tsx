@@ -4,14 +4,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import gsap from "gsap";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, MessageCircle, Volume2, VolumeX } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  Flame,
+  HelpCircle,
+  Keyboard,
+  Lightbulb,
+  Loader2,
+  MessageCircle,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import type { Step } from "@/lib/courses";
 import { getInstructor } from "@/lib/instructors";
-import { synthesize, pcmToWavBlob } from "@/lib/tts";
+import { synthesize, pcmToWavBlob, isVoiceReady, prefetchVoice } from "@/lib/tts";
 import { latexToSpeech } from "@/lib/latexToSpeech";
+import { celebrateLessonComplete } from "@/lib/confetti";
+import { useUiSounds } from "@/lib/sounds";
 import MessageContent from "./MessageContent";
 import CourseQAPanel from "./CourseQAPanel";
+import TutorAvatar, { type TutorAvatarState } from "./TutorAvatar";
+import LoadingDots from "./LoadingDots";
 import QuizCard from "./widgets/QuizCard";
 import FractionBar from "./widgets/FractionBar";
 import MatchPairs from "./widgets/MatchPairs";
@@ -39,6 +58,7 @@ export default function CoursePlayer({
   studentName,
   nextLessonId,
   initialStepIndex = 0,
+  streak = 0,
   onStepAdvance,
   onLessonComplete,
 }: {
@@ -53,6 +73,8 @@ export default function CoursePlayer({
   nextLessonId: string | null;
   /** Step to resume on (e.g., from saved progress). Bounded by steps.length. */
   initialStepIndex?: number;
+  /** Current consecutive-day completion streak — shown as a small chip. */
+  streak?: number;
   /** Called whenever the active step index changes (for progress saving). */
   onStepAdvance?: (newIndex: number) => void;
   /** Called once the student finishes the last step. Parent can mark progress. */
@@ -77,6 +99,35 @@ export default function CoursePlayer({
   // Student can mute via the speaker icon in the header.
   const [voiceOn, setVoiceOn] = useState(true);
   const [voicePlaying, setVoicePlaying] = useState(false);
+  // Browsers block autoplay across navigations — even when the prior page
+  // had a user click. We gate the lesson behind a one-tap "Start" overlay
+  // whose click event unlocks the AudioContext for the rest of the session.
+  // After this is true, every subsequent step's voice plays automatically.
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  // Tracks whether the Kokoro voice model is loaded. Used to show a small
+  // "Voice loading…" pill in the header so the student knows the silence
+  // is temporary, not broken. Non-blocking — the lesson stays interactive.
+  const [voiceReady, setVoiceReady] = useState<boolean>(isVoiceReady());
+  useEffect(() => {
+    if (voiceReady) return;
+    let cancelled = false;
+    prefetchVoice().finally(() => {
+      if (!cancelled) setVoiceReady(isVoiceReady());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [voiceReady]);
+
+  // Briefly active when the student answers wrong — drives the tutor's
+  // "encouraging" pose. Cleared by a timeout.
+  const [isEncouraging, setIsEncouraging] = useState(false);
+  const encouragingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerEncouraging = () => {
+    if (encouragingTimerRef.current) clearTimeout(encouragingTimerRef.current);
+    setIsEncouraging(true);
+    encouragingTimerRef.current = setTimeout(() => setIsEncouraging(false), 2200);
+  };
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const lastSpokenStepRef = useRef<number>(-1);
@@ -112,16 +163,33 @@ export default function CoursePlayer({
     });
   }, [progressPct]);
 
+  // Track which step indices have been completed in this session so going
+  // back to a previously-finished step keeps its "Continue" button visible.
+  const completedStepsRef = useRef<Set<number>>(new Set());
+
   // Passive step types auto-mark stepDone so Continue is immediately available.
-  // Interactive ones wait for the widget's onAnswer callback.
+  // Interactive ones wait for the widget's onAnswer callback — unless the
+  // student has already completed this step (e.g., via the back button).
   useEffect(() => {
     if (!step) return;
+    const alreadyDone = completedStepsRef.current.has(stepIdx);
     setStepDone(
-      step.type === "intro" ||
+      alreadyDone ||
+        step.type === "intro" ||
         step.type === "explainer" ||
         step.type === "checkpoint"
     );
-  }, [step]);
+  }, [step, stepIdx]);
+
+  // Track "correct" momentum for surprise celebrations.
+  const correctStreakRef = useRef(0);
+  const hasHadFirstCorrectRef = useRef(false);
+  const [streakChip, setStreakChip] = useState<string | null>(null);
+  // Idle-hint state — fires after 25s on an interactive step that's still
+  // incomplete. Resets every time the student does anything.
+  const [showIdleHint, setShowIdleHint] = useState(false);
+  // Open state for the keyboard shortcuts overlay (triggered by `?` key).
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // ─── Voice playback for the step script ──────────────────────────────
   const stopVoice = () => {
@@ -144,8 +212,11 @@ export default function CoursePlayer({
   // Auto-play the current step's script when it appears, if voice is on.
   // Guarded by lastSpokenStepRef so React Strict Mode's double-mount doesn't
   // synthesize twice. Also re-fires when the student toggles voice on.
+  // Gated by audioUnlocked — browsers reject autoplay across navigations
+  // even if the prior page had a click. We require one tap on the player
+  // to unlock the AudioContext for the rest of the session.
   useEffect(() => {
-    if (!voiceOn) {
+    if (!voiceOn || !audioUnlocked) {
       stopVoice();
       return;
     }
@@ -153,10 +224,11 @@ export default function CoursePlayer({
     if (lastSpokenStepRef.current === stepIdx) return;
     lastSpokenStepRef.current = stepIdx;
 
-    const scriptText = hasScript(step) ? (step.script ?? "") : "";
-    const cleaned = latexToSpeech(
-      renderScript(scriptText, { studentName })
-    ).slice(0, 700);
+    // Compose the full narration for THIS step (script + question + options
+     // + bullets etc.) so the voice actually reads the interactive content,
+     // not just the lead-in script.
+    const fullText = composeNarration(step, studentName);
+    const cleaned = latexToSpeech(fullText).slice(0, 900);
     if (!cleaned.trim()) return;
 
     let cancelled = false;
@@ -194,20 +266,187 @@ export default function CoursePlayer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIdx, voiceOn, instructor?.voiceId]);
+  }, [stepIdx, voiceOn, instructor?.voiceId, audioUnlocked]);
 
   // Stop any lingering audio when the player unmounts.
   useEffect(() => () => stopVoice(), []);
 
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────
+  // Space: advance when ready; ←: previous step; M: mute/unmute voice;
+  // 1-4: select quiz option N (broadcast via custom event); ?: shortcuts;
+  // Esc: close overlays. Skipped while typing in inputs.
+  useEffect(() => {
+    const isTypingTarget = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        el.isContentEditable
+      );
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      // Don't interfere with browser shortcuts.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "?") {
+        e.preventDefault();
+        setShortcutsOpen((v) => !v);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (shortcutsOpen) setShortcutsOpen(false);
+        else if (qaOpen) setQaOpen(false);
+        return;
+      }
+      if (e.key === " " || e.code === "Space") {
+        if (stepDone && !lessonFinished) {
+          e.preventDefault();
+          handleAdvance();
+        }
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handleStepBack();
+        return;
+      }
+      if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        if (voiceOn) stopVoice();
+        else {
+          if (!audioUnlocked) handleStartLesson();
+          lastSpokenStepRef.current = -1;
+        }
+        setVoiceOn((v) => !v);
+        return;
+      }
+      // Quiz option selection 1-4 (broadcasts to QuizCard).
+      if (/^[1-4]$/.test(e.key)) {
+        e.preventDefault();
+        const idx = Number(e.key) - 1;
+        window.dispatchEvent(
+          new CustomEvent("course-player:select-option", { detail: { index: idx } })
+        );
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepDone, lessonFinished, voiceOn, audioUnlocked, qaOpen, shortcutsOpen]);
+
+  // ─── Idle hint ────────────────────────────────────────────────────────
+  // Fires after 25s on an interactive step that's still incomplete.
+  // Cancelled on any pointer/keyboard activity or when the step advances.
+  useEffect(() => {
+    setShowIdleHint(false);
+    if (!step) return;
+    const isInteractive =
+      step.type === "quiz" ||
+      step.type === "fraction-bar" ||
+      step.type === "match-pairs" ||
+      step.type === "sort-sequence";
+    if (!isInteractive || stepDone) return;
+
+    let timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setShowIdleHint(true);
+    }, 25000);
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setShowIdleHint(true), 25000);
+    };
+    window.addEventListener("pointerdown", reset);
+    window.addEventListener("keydown", reset);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", reset);
+      window.removeEventListener("keydown", reset);
+    };
+  }, [step, stepIdx, stepDone]);
+
+  const { playAdvance, playComplete } = useUiSounds();
+
+  // One-tap audio unlock. Browsers block <audio>.play() unless the call
+  // path traces back to a direct user gesture in the current document.
+  // We play a tiny silent buffer synchronously inside the click handler
+  // to satisfy that requirement; subsequent voice playback then works
+  // even though it goes through async synthesize().
+  const handleStartLesson = () => {
+    if (audioUnlocked) return;
+    try {
+      // 50ms silent WAV header — enough to satisfy the autoplay gesture
+      // check without an audible artefact.
+      const silence = new Audio(
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+      );
+      silence.volume = 0;
+      silence.play().catch(() => {
+        // Even silent autoplay can fail on locked-down browsers; we
+        // proceed anyway — the user clicked, that's the gesture we need.
+      });
+    } catch {
+      // ignore
+    }
+    setAudioUnlocked(true);
+    // Reset the spoken-step guard so the current step actually plays.
+    lastSpokenStepRef.current = -1;
+  };
+
   const handleAdvance = () => {
+    completedStepsRef.current.add(stepIdx);
     if (stepIdx + 1 >= total) {
       setLessonFinished(true);
+      playComplete();
+      celebrateLessonComplete();
+      // Track session lesson count in sessionStorage so it resets when the
+      // browser tab is closed (= "today's session" approximation without
+      // querying timestamps). The card reads it on render.
+      if (typeof window !== "undefined") {
+        try {
+          const cur = Number(sessionStorage.getItem("session:lessonsDone") ?? "0");
+          sessionStorage.setItem("session:lessonsDone", String(cur + 1));
+        } catch {
+          // ignore quota errors
+        }
+      }
       onLessonComplete?.();
       return;
     }
     const nextIdx = stepIdx + 1;
     setStepIdx(nextIdx);
+    playAdvance();
     onStepAdvance?.(nextIdx);
+  };
+
+  /** Go back to the previous step. Doesn't reset stepDone for steps the
+   *  student already finished — the Continue button is immediately
+   *  available again. */
+  const handleStepBack = () => {
+    if (stepIdx === 0) return;
+    setStepIdx((i) => Math.max(0, i - 1));
+    setShowIdleHint(false);
+  };
+
+  /** Fired by QuizCard on every answer (right or wrong). Drives the
+   *  "3 in a row" + "first correct of session" surprise moments. */
+  const handleAnswerResult = (isCorrect: boolean) => {
+    if (!isCorrect) {
+      correctStreakRef.current = 0;
+      return;
+    }
+    correctStreakRef.current += 1;
+    // First correct ever this session — make the next continue extra warm.
+    if (!hasHadFirstCorrectRef.current) {
+      hasHadFirstCorrectRef.current = true;
+      setStreakChip("Nice — first one down!");
+      setTimeout(() => setStreakChip(null), 2200);
+      return;
+    }
+    if (correctStreakRef.current >= 3) {
+      setStreakChip(`${correctStreakRef.current} in a row 🔥`);
+      setTimeout(() => setStreakChip(null), 2200);
+    }
   };
 
   const handleGoToNextLesson = () => {
@@ -220,75 +459,123 @@ export default function CoursePlayer({
 
   if (!step) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-slate-400">
-        <Loader2 className="w-5 h-5 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingDots size="lg" label="Loading lesson…" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fef8f3] via-white to-white flex flex-col">
+    <div className="min-h-screen bg-void-black flex flex-col">
       {/* Header */}
-      <header className="px-4 md:px-8 py-4 border-b border-slate-100">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
+      <header className="px-4 md:px-8 py-4 border-b border-[var(--border-subtle)] bg-void-black">
+        <div className="max-w-3xl mx-auto flex items-center gap-2">
           <Link
             href={`/courses/${courseId}`}
-            className="shrink-0 p-2 rounded-lg text-slate-500 hover:text-ink hover:bg-slate-100 transition-colors"
+            className="shrink-0 p-2 rounded-lg text-ash-gray hover:text-canvas-white hover:bg-coal transition-colors"
             aria-label="Back to course"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <button
-            onClick={() => {
-              if (voiceOn) stopVoice();
-              setVoiceOn((v) => !v);
-              // Allow re-speaking the current step when re-enabling voice.
-              if (!voiceOn) lastSpokenStepRef.current = -1;
-            }}
-            className={cn(
-              "shrink-0 p-2 rounded-lg transition-colors relative",
-              voiceOn
-                ? "text-indigo-600 hover:bg-indigo-50"
-                : "text-slate-400 hover:bg-slate-100"
-            )}
-            aria-label={voiceOn ? "Mute tutor voice" : "Unmute tutor voice"}
-            title={voiceOn ? "Voice on" : "Voice muted"}
+            onClick={handleStepBack}
+            disabled={stepIdx === 0}
+            className="shrink-0 p-2 rounded-lg text-ash-gray hover:text-canvas-white hover:bg-coal transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Previous step"
+            title="Previous step (←)"
           >
-            {voiceOn ? (
-              <Volume2 className="w-4 h-4" />
-            ) : (
-              <VolumeX className="w-4 h-4" />
-            )}
-            {voicePlaying && voiceOn && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
-            )}
+            <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-semibold text-slate-700 truncate">
+            <div className="flex items-center justify-between mb-1.5 gap-2">
+              <p className="text-xs font-semibold text-canvas-white truncate">
                 {lessonTitle}
               </p>
-              <p className="text-[10px] font-medium text-slate-400 shrink-0">
+              <p className="text-[10px] font-medium text-ash-gray shrink-0">
                 Step {stepIdx + 1} of {total}
               </p>
             </div>
-            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-1 bg-iron rounded-full overflow-hidden">
               <div
                 ref={progressBarRef}
-                className="h-full bg-gradient-to-r from-indigo-400 to-indigo-600"
+                className="h-full bg-canvas-white"
                 style={{ width: "0%" }}
               />
             </div>
           </div>
+          {/* Right cluster — streak (subtle), voice, help */}
+          {streak > 0 && (
+            <span
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-iron border border-[var(--border-subtle)] text-[10px] font-semibold text-canvas-white shrink-0"
+              title={`${streak}-day streak`}
+            >
+              <Flame className="w-3 h-3" />
+              {streak}
+            </span>
+          )}
+          <button
+            onClick={() => {
+              if (voiceOn) {
+                stopVoice();
+              } else {
+                if (!audioUnlocked) handleStartLesson();
+                lastSpokenStepRef.current = -1;
+              }
+              setVoiceOn((v) => !v);
+            }}
+            className={cn(
+              "shrink-0 p-2 rounded-lg transition-colors relative",
+              voiceOn
+                ? "text-canvas-white hover:bg-coal"
+                : "text-ash-gray hover:bg-coal"
+            )}
+            aria-label={voiceOn ? "Mute tutor voice" : "Unmute tutor voice"}
+            title={voiceOn ? "Mute voice (M)" : "Unmute voice (M)"}
+          >
+            {voiceOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            {voicePlaying && voiceOn && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-canvas-white animate-ping" />
+            )}
+          </button>
+          <button
+            onClick={() => setShortcutsOpen((v) => !v)}
+            className="hidden sm:inline-flex shrink-0 p-2 rounded-lg text-ash-gray hover:text-canvas-white hover:bg-coal transition-colors"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
       {/* Stage */}
-      <main className="flex-1 px-4 md:px-8 py-6 md:py-10 flex flex-col items-center">
+      <main className="flex-1 px-4 md:px-8 py-6 md:py-10 flex flex-col items-center relative">
+        {/* One-tap audio unlock — covers the lesson on first mount when
+            voice is on. Disappears after click; never re-appears in this
+            session. */}
+        {voiceOn && !audioUnlocked && !lessonFinished && (
+          <button
+            onClick={handleStartLesson}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-void-black/80 backdrop-blur-sm text-canvas-white"
+            aria-label="Start lesson"
+          >
+            <span className="w-20 h-20 rounded-full bg-canvas-white text-void-black flex items-center justify-center shadow-md hover:opacity-90 transition-opacity">
+              <Volume2 className="w-8 h-8" />
+            </span>
+            <div className="text-center">
+              <p className="text-lg font-semibold mb-1">Tap to start lesson</p>
+              <p className="text-xs text-ash-gray max-w-[26ch]">
+                Your tutor will start speaking. You can mute the voice anytime
+                from the header.
+              </p>
+            </div>
+          </button>
+        )}
+
         {lessonFinished ? (
           <LessonCompleteCard
+            instructorId={instructor?.id ?? null}
             instructorShortName={instructor?.shortName ?? "Your tutor"}
-            instructorAccentColor={instructor?.accentColor ?? "#6366F1"}
             instructorInitial={instructor?.avatarInitial ?? "T"}
             lessonTitle={lessonTitle}
             hasNextLesson={Boolean(nextLessonId)}
@@ -299,24 +586,24 @@ export default function CoursePlayer({
             {/* Tutor speech */}
             {instructor && (
               <div className="flex items-start gap-3">
-                <div
-                  className="w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center text-white text-lg md:text-xl font-bold shadow-md shrink-0"
-                  style={{ background: instructor.accentColor }}
-                >
-                  {instructor.avatarInitial}
-                </div>
+                <TutorAvatar
+                  instructorId={instructor.id}
+                  state={avatarState(step.type, voicePlaying, isEncouraging)}
+                  size={56}
+                  className="shrink-0"
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-ash-gray font-semibold mb-1.5">
                     {instructor.name}
                   </p>
-                  <div className="relative bg-[#fef0e1] border border-orange-100 rounded-2xl px-4 py-3">
-                    <div className="absolute -left-1.5 top-3 w-3 h-3 bg-[#fef0e1] border-l border-t border-orange-100 rotate-45" />
+                  <div className="relative bg-coal border border-[var(--border-subtle)] rounded-[14px] px-4 py-3 text-canvas-white">
+                    <div className="absolute -left-1.5 top-3 w-3 h-3 bg-coal border-l border-t border-[var(--border-subtle)] rotate-45" />
                     {hasScript(step) ? (
                       <MessageContent
                         text={renderScript(step.script ?? "", { studentName })}
                       />
                     ) : (
-                      <p className="text-sm text-slate-400 italic">…</p>
+                      <p className="text-sm text-ash-gray italic">…</p>
                     )}
                   </div>
                 </div>
@@ -328,36 +615,130 @@ export default function CoursePlayer({
               key={`step-${stepIdx}`}
               step={step}
               onComplete={() => setStepDone(true)}
+              onWrong={triggerEncouraging}
+              onAnswerResult={handleAnswerResult}
             />
 
-            {/* Continue */}
-            {stepDone && (
-              <button
-                onClick={handleAdvance}
-                className="self-stretch px-5 py-3.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
-              >
-                {stepIdx + 1 >= total ? "Finish lesson" : "Continue"}
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
+            {/* Idle hint — appears after 25s of inactivity on an unfinished
+                interactive step. Routes the student to the Q&A panel. */}
+            <AnimatePresence>
+              {showIdleHint && (
+                <motion.button
+                  key="idle-hint"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  onClick={() => {
+                    setShowIdleHint(false);
+                    setQaOpen(true);
+                  }}
+                  className="self-start inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-coal border border-[var(--border-strong)] text-canvas-white text-xs hover:bg-iron transition-colors"
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Stuck? Ask your tutor for a hint.
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            {/* Continue — springs in when the step becomes complete */}
+            <AnimatePresence>
+              {stepDone && (
+                <motion.button
+                  key="continue"
+                  initial={{ opacity: 0, y: 14, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 24 }}
+                  onClick={handleAdvance}
+                  className="self-stretch px-5 py-3.5 bg-canvas-white hover:opacity-90 text-void-black rounded-lg font-semibold active:scale-95 flex items-center justify-center gap-2 shadow-md"
+                >
+                  {stepIdx + 1 >= total ? "Finish lesson" : "Continue"}
+                  <ArrowRight className="w-4 h-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </main>
 
-      <footer className="px-4 md:px-8 py-3 border-t border-slate-100 bg-white">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <button
-            onClick={() => setQaOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-full transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            Ask a question
-          </button>
-          <p className="text-[10px] text-slate-400 truncate">
-            {lessonObjective}
-          </p>
-        </div>
+      {/* Footer: just the objective caption; the Q&A entry point is now the
+          floating button below, which the student can spot from anywhere. */}
+      <footer className="px-4 md:px-8 py-3 border-t border-[var(--border-subtle)] bg-void-black">
+        <p className="max-w-3xl mx-auto text-[10px] text-ash-gray text-center truncate">
+          {lessonObjective}
+        </p>
       </footer>
+
+      {/* ─── Floating Q&A button — persistent, hard to miss ─────────── */}
+      {!lessonFinished && (
+        <button
+          onClick={() => setQaOpen(true)}
+          className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 px-4 py-3 bg-canvas-white text-void-black rounded-full shadow-md hover:opacity-90 transition-opacity font-medium text-sm"
+          aria-label="Ask a question"
+          title="Ask a question (?)"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span className="hidden sm:inline">Ask</span>
+        </button>
+      )}
+
+      {/* ─── Surprise celebration chip (3-in-a-row, first correct) ──── */}
+      <AnimatePresence>
+        {streakChip && (
+          <motion.div
+            key="streak-chip"
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 360, damping: 22 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-canvas-white text-void-black text-sm font-semibold shadow-md"
+          >
+            {streakChip}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Keyboard shortcuts overlay ─────────────────────────────── */}
+      <AnimatePresence>
+        {shortcutsOpen && (
+          <motion.div
+            key="shortcuts-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShortcutsOpen(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-coal border border-[var(--border-strong)] rounded-[14px] p-6 w-full max-w-sm relative"
+            >
+              <button
+                onClick={() => setShortcutsOpen(false)}
+                className="absolute top-3 right-3 p-1.5 rounded-md text-ash-gray hover:text-canvas-white hover:bg-iron"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <h3 className="text-base font-semibold text-canvas-white mb-4">
+                Keyboard shortcuts
+              </h3>
+              <ul className="flex flex-col gap-2 text-sm">
+                <ShortcutRow keyLabel="Space" label="Continue" />
+                <ShortcutRow keyLabel="←" label="Previous step" />
+                <ShortcutRow keyLabel="1-4" label="Pick a quiz option" />
+                <ShortcutRow keyLabel="M" label="Mute / unmute voice" />
+                <ShortcutRow keyLabel="?" label="Show this menu" />
+                <ShortcutRow keyLabel="Esc" label="Close panels" />
+              </ul>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CourseQAPanel
         open={qaOpen}
@@ -369,6 +750,33 @@ export default function CoursePlayer({
       />
     </div>
   );
+}
+
+/** Small row in the keyboard shortcuts overlay. */
+function ShortcutRow({ keyLabel, label }: { keyLabel: string; label: string }) {
+  return (
+    <li className="flex items-center justify-between gap-3">
+      <span className="text-ash-gray">{label}</span>
+      <kbd className="px-2 py-0.5 rounded-md bg-iron border border-[var(--border-strong)] text-canvas-white text-xs font-mono">
+        {keyLabel}
+      </kbd>
+    </li>
+  );
+}
+
+/** Map current step + voice state to a TutorAvatar state. */
+function avatarState(
+  stepType: Step["type"],
+  voicePlaying: boolean,
+  isEncouraging: boolean
+): TutorAvatarState {
+  if (isEncouraging) return "encouraging";
+  if (voicePlaying) return "talking";
+  if (stepType === "checkpoint") return "celebrating";
+  if (stepType === "quiz" || stepType === "fraction-bar" || stepType === "match-pairs" || stepType === "sort-sequence") {
+    return "thinking";
+  }
+  return "idle";
 }
 
 function summarizeStep(step: Step | undefined): string {
@@ -391,9 +799,15 @@ function summarizeStep(step: Step | undefined): string {
 function StepBody({
   step,
   onComplete,
+  onWrong,
+  onAnswerResult,
 }: {
   step: Step;
   onComplete: () => void;
+  onWrong?: () => void;
+  /** Fires for every quiz answer (right or wrong). Used by the parent to
+   *  drive surprise celebrations like "3 in a row". */
+  onAnswerResult?: (isCorrect: boolean) => void;
 }) {
   switch (step.type) {
     case "intro":
@@ -402,11 +816,11 @@ function StepBody({
 
     case "explainer":
       return step.bullets && step.bullets.length > 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <ul className="flex flex-col gap-2">
+        <div className="bg-coal rounded-[14px] border border-[var(--border-subtle)] p-5">
+          <ul className="flex flex-col gap-2.5">
             {step.bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
-                <span className="w-5 h-5 mt-0.5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+              <li key={i} className="flex items-start gap-2.5 text-sm text-canvas-white/90">
+                <span className="w-5 h-5 mt-0.5 rounded-md bg-iron border border-[var(--border-strong)] text-canvas-white text-xs font-bold flex items-center justify-center shrink-0">
                   {i + 1}
                 </span>
                 <span>{b}</span>
@@ -418,9 +832,9 @@ function StepBody({
 
     case "checkpoint":
       return (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <p className="text-sm text-emerald-800 font-medium">
+        <div className="bg-coal border border-[var(--border-subtle)] rounded-[14px] p-5 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-canvas-white shrink-0" />
+          <p className="text-sm text-canvas-white font-medium">
             Checkpoint passed. Keep going!
           </p>
         </div>
@@ -435,7 +849,14 @@ function StepBody({
             options: step.options,
             correctKey: step.correctKey,
           }}
-          onAnswer={() => onComplete()}
+          onAnswer={(_label, isCorrect) => {
+            onAnswerResult?.(isCorrect);
+            onComplete();
+          }}
+          onWrong={() => {
+            onAnswerResult?.(false);
+            onWrong?.();
+          }}
         />
       );
 
@@ -477,6 +898,72 @@ function hasScript(step: Step): step is Extract<Step, { script: string | undefin
   return "script" in step;
 }
 
+/** Build the full narration text for a step. The voice reads:
+ *  - intro/checkpoint        → script only
+ *  - explainer               → script + each bullet as a numbered list
+ *  - quiz                    → script + "Here's the question..." + question +
+ *                              each option ("A: option text")
+ *  - fraction-bar            → script + "Try to make X out of Y"
+ *  - match-pairs             → script + prompt
+ *  - sort-sequence           → script + prompt + each item to sort
+ *
+ *  Each piece gets the {{studentName}} substitution. Returned string is
+ *  passed through latexToSpeech() by the caller for math handling. */
+function composeNarration(
+  step: Step,
+  studentName?: string | null
+): string {
+  const sub = (s: string) => renderScript(s ?? "", { studentName });
+  const lines: string[] = [];
+
+  if ("script" in step && step.script) {
+    lines.push(sub(step.script));
+  }
+
+  switch (step.type) {
+    case "explainer": {
+      if (step.bullets && step.bullets.length > 0) {
+        // Read bullets as "First, ... Second, ... Third, ..." for natural
+        // listening flow. Falls back to numbers past three.
+        const numberWord = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
+        step.bullets.forEach((b, i) => {
+          const prefix = numberWord[i] ?? `Number ${i + 1}`;
+          lines.push(`${prefix}, ${sub(b)}`);
+        });
+      }
+      break;
+    }
+    case "quiz": {
+      const q = sub(step.question);
+      if (q) lines.push(`Here's the question. ${q}`);
+      step.options.forEach((opt) => {
+        lines.push(`${opt.key}: ${sub(opt.label)}`);
+      });
+      break;
+    }
+    case "fraction-bar": {
+      const m = step.target.match(/(\d+)\s*\/\s*(\d+)/);
+      if (m) {
+        lines.push(`Try to make ${m[1]} out of ${m[2]}.`);
+      }
+      break;
+    }
+    case "match-pairs": {
+      if (step.prompt) lines.push(sub(step.prompt));
+      break;
+    }
+    case "sort-sequence": {
+      // Read the prompt only. We deliberately DON'T read out the items —
+      // they're stored in correct order, so narrating them would hand the
+      // student the answer.
+      if (step.prompt) lines.push(sub(step.prompt));
+      break;
+    }
+  }
+
+  return lines.join(". ").replace(/\.+/g, ".");
+}
+
 /** Tiny template substitution — replaces {{studentName}} so authors can
  *  personalize scripts without coding. */
 function renderScript(
@@ -492,15 +979,15 @@ function renderScript(
 // ─── Lesson complete card ──────────────────────────────────────────────
 
 function LessonCompleteCard({
+  instructorId,
   instructorShortName,
-  instructorAccentColor,
   instructorInitial,
   lessonTitle,
   hasNextLesson,
   onContinue,
 }: {
+  instructorId: string | null;
   instructorShortName: string;
-  instructorAccentColor: string;
   instructorInitial: string;
   lessonTitle: string;
   hasNextLesson: boolean;
@@ -541,32 +1028,94 @@ function LessonCompleteCard({
   return (
     <div
       ref={ref}
-      className="w-full max-w-md text-center py-8 px-4 flex flex-col items-center"
+      className="w-full max-w-md text-center py-12 px-4 flex flex-col items-center"
     >
-      <div
-        ref={checkRef}
-        className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-lg"
-        style={{ background: instructorAccentColor }}
-      >
-        <CheckCircle2 className="w-10 h-10 text-white" />
+      {/* Course-complete is a bigger moment than lesson-complete — different
+          badge, different copy, bigger avatar. Fire a second confetti pop
+          after a beat so the celebration lands as two waves. */}
+      {!hasNextLesson && (
+        <CourseCompleteFlourish />
+      )}
+      <div ref={checkRef} className="mb-6">
+        <TutorAvatar
+          instructorId={instructorId}
+          state="celebrating"
+          size={hasNextLesson ? 96 : 120}
+        />
       </div>
-      <p
-        className="text-[10px] uppercase tracking-wider font-semibold mb-1"
-        style={{ color: instructorAccentColor }}
+      <div className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3 text-[10px] uppercase tracking-wider font-semibold",
+        hasNextLesson
+          ? "text-ash-gray"
+          : "bg-canvas-white text-void-black"
+      )}>
+        {hasNextLesson
+          ? `Lesson complete · ${instructorInitial}`
+          : "Course mastered"}
+      </div>
+      <h2
+        className="font-bold text-canvas-white mb-2"
+        style={{
+          fontSize: hasNextLesson
+            ? "clamp(22px, 3vw, 32px)"
+            : "clamp(28px, 4vw, 44px)",
+          letterSpacing: "-0.48px",
+          lineHeight: 1.2,
+        }}
       >
-        Lesson complete · {instructorInitial}
+        {hasNextLesson ? lessonTitle : "You finished the course"}
+      </h2>
+      <p className="text-sm text-ash-gray mb-6 max-w-prose">
+        {hasNextLesson
+          ? `${instructorShortName} thinks you crushed it.`
+          : `${instructorShortName} is genuinely proud. Replay any lesson anytime — or pick a new course.`}
       </p>
-      <h2 className="text-2xl font-bold text-ink mb-2">{lessonTitle}</h2>
-      <p className="text-sm text-slate-500 mb-6">
-        {instructorShortName} thinks you crushed it.
-      </p>
+      <SessionStat />
+      <div className="h-6" />
       <button
         onClick={onContinue}
-        className="w-full px-5 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-semibold text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+        className="w-full px-5 py-3 bg-canvas-white hover:opacity-90 text-void-black rounded-lg font-semibold text-sm transition-opacity active:scale-95 flex items-center justify-center gap-2 shadow-md"
       >
         {hasNextLesson ? "Next lesson" : "Back to course"}
         <ArrowRight className="w-4 h-4" />
       </button>
     </div>
   );
+}
+
+/** Small "session" stats row — shown under the lesson-complete copy. Reads
+ *  the per-tab counter set when handleAdvance finishes a lesson. */
+function SessionStat() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const cur = Number(sessionStorage.getItem("session:lessonsDone") ?? "0");
+      if (cur > 0) setCount(cur);
+    } catch {
+      // ignore
+    }
+  }, []);
+  if (!count) return null;
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-iron border border-[var(--border-subtle)] text-xs text-canvas-white">
+      <span className="text-canvas-white font-semibold">{count}</span>
+      <span className="text-ash-gray">
+        lesson{count === 1 ? "" : "s"} this session
+      </span>
+    </div>
+  );
+}
+
+/** Fires a second confetti burst ~600ms after the card mounts, so a course
+ *  completion feels like a two-wave celebration instead of one. Renders
+ *  nothing visually itself — it just triggers the side effect. */
+function CourseCompleteFlourish() {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      celebrateLessonComplete();
+    }, 600);
+    return () => clearTimeout(t);
+  }, []);
+  return null;
 }

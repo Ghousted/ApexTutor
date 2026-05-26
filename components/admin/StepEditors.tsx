@@ -25,7 +25,7 @@ function ScriptField({
 }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
         Tutor says
       </label>
       <textarea
@@ -33,7 +33,7 @@ function ScriptField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={2}
-        className="w-full p-2.5 border border-slate-200 rounded-lg bg-white text-sm text-ink resize-none outline-none focus:border-indigo-400"
+        className="w-full p-2.5 border border-[var(--border-subtle)] rounded-lg bg-coal text-sm text-canvas-white resize-none outline-none focus:border-[var(--border-strong)]"
       />
     </div>
   );
@@ -66,7 +66,7 @@ export function ExplainerEditor({
         placeholder="Explain the concept clearly. Keep it under ~3 sentences."
       />
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Visible bullets (optional)
         </label>
         <div className="flex flex-col gap-1.5">
@@ -80,14 +80,14 @@ export function ExplainerEditor({
                   onChange({ ...step, bullets: next });
                 }}
                 placeholder={`Bullet ${i + 1}`}
-                className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+                className="flex-1 px-2.5 py-1.5 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
               />
               <button
                 onClick={() => {
                   const next = bullets.filter((_, j) => j !== i);
                   onChange({ ...step, bullets: next });
                 }}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                className="p-1.5 text-ash-gray hover:text-canvas-white hover:bg-coal rounded"
                 aria-label="Remove bullet"
               >
                 <X className="w-3.5 h-3.5" />
@@ -96,7 +96,7 @@ export function ExplainerEditor({
           ))}
           <button
             onClick={() => onChange({ ...step, bullets: [...bullets, ""] })}
-            className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-md"
+            className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-canvas-white hover:bg-iron rounded-md"
           >
             <Plus className="w-3 h-3" /> Add bullet
           </button>
@@ -140,19 +140,19 @@ export function QuizEditor({ step, onChange }: EditorProps<Extract<Step, { type:
         placeholder="Introduce the question briefly."
       />
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Question
         </label>
         <input
           value={step.question}
           onChange={(e) => onChange({ ...step, question: e.target.value })}
           placeholder="What is 1/2 + 1/3?"
-          className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+          className="w-full px-2.5 py-2 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
         />
       </div>
 
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Options (click the radio to mark the correct answer)
         </label>
         <div className="flex flex-col gap-1.5">
@@ -165,18 +165,18 @@ export function QuizEditor({ step, onChange }: EditorProps<Extract<Step, { type:
                 onChange={() => onChange({ ...step, correctKey: opt.key })}
                 className="w-4 h-4 accent-indigo-500 shrink-0"
               />
-              <span className="w-5 text-xs font-semibold text-slate-500 shrink-0">
+              <span className="w-5 text-xs font-semibold text-ash-gray shrink-0">
                 {opt.key}
               </span>
               <input
                 value={opt.label}
                 onChange={(e) => setOption(i, e.target.value)}
                 placeholder={`Option ${opt.key}`}
-                className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+                className="flex-1 px-2.5 py-1.5 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
               />
               <button
                 onClick={() => removeOption(i)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                className="p-1.5 text-ash-gray hover:text-canvas-white hover:bg-coal rounded"
                 aria-label="Remove option"
               >
                 <X className="w-3.5 h-3.5" />
@@ -186,7 +186,7 @@ export function QuizEditor({ step, onChange }: EditorProps<Extract<Step, { type:
           {options.length < 5 && (
             <button
               onClick={addOption}
-              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-md"
+              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-canvas-white hover:bg-iron rounded-md"
             >
               <Plus className="w-3 h-3" /> Add option
             </button>
@@ -211,16 +211,16 @@ export function FractionBarEditor({
         placeholder='e.g. "Make 3/4 by clicking the cells."'
       />
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Target fraction
         </label>
         <input
           value={step.target}
           onChange={(e) => onChange({ ...step, target: e.target.value })}
           placeholder="3/4"
-          className="w-32 px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400 font-mono"
+          className="w-32 px-2.5 py-2 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)] font-mono"
         />
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-[11px] text-ash-gray mt-1">
           The denominator becomes the bar&apos;s cell count. Student clicks to fill.
         </p>
       </div>
@@ -250,18 +250,18 @@ export function MatchPairsEditor({
         placeholder="Introduce the matching activity."
       />
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Prompt shown above pairs (optional)
         </label>
         <input
           value={step.prompt ?? ""}
           onChange={(e) => onChange({ ...step, prompt: e.target.value })}
           placeholder="Match each equation to its solution."
-          className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+          className="w-full px-2.5 py-2 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
         />
       </div>
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Pairs (drag from left, drop on right)
         </label>
         <div className="flex flex-col gap-1.5">
@@ -271,20 +271,20 @@ export function MatchPairsEditor({
                 value={p.left}
                 onChange={(e) => setPair(i, "left", e.target.value)}
                 placeholder={`Left ${i + 1}`}
-                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+                className="px-2.5 py-1.5 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
               />
-              <span className="text-slate-400 text-xs">↔</span>
+              <span className="text-ash-gray text-xs">↔</span>
               <input
                 value={p.right}
                 onChange={(e) => setPair(i, "right", e.target.value)}
                 placeholder={`Right ${i + 1}`}
-                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+                className="px-2.5 py-1.5 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
               />
               <button
                 onClick={() =>
                   onChange({ ...step, pairs: pairs.filter((_, j) => j !== i) })
                 }
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                className="p-1.5 text-ash-gray hover:text-canvas-white hover:bg-coal rounded"
                 aria-label="Remove pair"
               >
                 <X className="w-3.5 h-3.5" />
@@ -296,7 +296,7 @@ export function MatchPairsEditor({
               onClick={() =>
                 onChange({ ...step, pairs: [...pairs, { left: "", right: "" }] })
               }
-              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-md"
+              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-canvas-white hover:bg-iron rounded-md"
             >
               <Plus className="w-3 h-3" /> Add pair
             </button>
@@ -327,39 +327,39 @@ export function SortSequenceEditor({
         placeholder='e.g. "Put these steps in the correct order."'
       />
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Prompt shown above the items (optional)
         </label>
         <input
           value={step.prompt ?? ""}
           onChange={(e) => onChange({ ...step, prompt: e.target.value })}
           placeholder="Order from smallest to largest."
-          className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+          className="w-full px-2.5 py-2 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
         />
       </div>
       <div>
-        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
           Items in the CORRECT order
         </label>
-        <p className="text-[11px] text-slate-400 mb-2">
+        <p className="text-[11px] text-ash-gray mb-2">
           The student sees them shuffled and drags rows until they match this
           order top-to-bottom.
         </p>
         <ol className="flex flex-col gap-1.5">
           {items.map((it, i) => (
             <li key={i} className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-xs font-bold text-slate-600 flex items-center justify-center shrink-0">
+              <span className="w-5 h-5 rounded-full bg-iron text-xs font-bold text-ash-gray flex items-center justify-center shrink-0">
                 {i + 1}
               </span>
               <input
                 value={it}
                 onChange={(e) => setItem(i, e.target.value)}
                 placeholder={`Step ${i + 1}`}
-                className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-indigo-400"
+                className="flex-1 px-2.5 py-1.5 border border-[var(--border-subtle)] rounded-lg text-sm bg-coal outline-none focus:border-[var(--border-strong)]"
               />
               <button
                 onClick={() => onChange({ ...step, items: items.filter((_, j) => j !== i) })}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                className="p-1.5 text-ash-gray hover:text-canvas-white hover:bg-coal rounded"
                 aria-label="Remove item"
               >
                 <X className="w-3.5 h-3.5" />
@@ -369,7 +369,7 @@ export function SortSequenceEditor({
           {items.length < 8 && (
             <button
               onClick={() => onChange({ ...step, items: [...items, ""] })}
-              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-md"
+              className="self-start inline-flex items-center gap-1 px-2.5 py-1 text-xs text-canvas-white hover:bg-iron rounded-md"
             >
               <Plus className="w-3 h-3" /> Add item
             </button>

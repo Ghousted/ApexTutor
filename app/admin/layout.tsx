@@ -12,7 +12,7 @@ export default function AdminLayout({
 }) {
   return (
     <AdminGuard>
-      <div className="min-h-screen flex bg-slate-50">
+      <div className="min-h-screen flex bg-void-black">
         <AdminSidebar />
         <main className="flex-1 overflow-x-hidden">{children}</main>
       </div>

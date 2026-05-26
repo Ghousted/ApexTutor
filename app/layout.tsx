@@ -1,23 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Suisse Intl is the Krea-spec typeface; Inter is the documented substitute.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Apex Tutor — AI Math & Science Tutor for Filipino Students",
+  title: "Apex Tutor — AI Math & Science Tutor",
   description:
-    "99% cheaper than a real-world tutor. Expert AI tutoring in Math and Science for Filipino students grades 4–12. Available 24/7, personalized just for you.",
-  keywords: ["tutor", "math", "science", "Philippines", "AI", "students", "grade school"],
+    "99% cheaper than a real-world tutor. Expert AI tutoring in Math and Science for grade-school and high-school students. Available 24/7, personalized just for you.",
+  keywords: ["tutor", "math", "science", "AI", "students", "grade school", "high school"],
 };
 
 export default function RootLayout({
@@ -28,9 +25,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950">{children}</body>
+      <body className="min-h-full flex flex-col bg-void-black text-canvas-white">
+        {children}
+      </body>
     </html>
   );
 }

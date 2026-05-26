@@ -11,6 +11,8 @@ import {
   markLessonComplete,
 } from "@/lib/enrollments";
 import CoursePlayer from "@/components/CoursePlayer";
+import LoadingDots from "@/components/LoadingDots";
+import { prefetchVoice } from "@/lib/tts";
 import type { Step } from "@/lib/courses";
 
 /**
@@ -39,9 +41,17 @@ export default function LearnLessonClient({
   const [studentName, setStudentName] = useState<string | null>(null);
   // null = still loading the enrollment / unknown resume position
   const [initialStepIndex, setInitialStepIndex] = useState<number | null>(null);
+  const [streak, setStreak] = useState<number>(0);
 
   // Debounce ref for save-on-advance.
   const saveDebouncerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fire-and-forget voice prefetch on mount. Runs in parallel with auth /
+  // enrollment / profile fetches so by the time the player mounts and tries
+  // to speak the first script, the Kokoro model is usually already cached.
+  useEffect(() => {
+    prefetchVoice();
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -61,6 +71,7 @@ export default function LearnLessonClient({
           getEnrollment(u.uid, courseId),
         ]);
         setStudentName(profileSnap.data()?.profile?.studentName ?? null);
+        setStreak(enrollment?.streak ?? 0);
 
         // Resume position: if the student already has progress in this lesson
         // and hasn't completed it, jump them there. Otherwise start fresh.
@@ -92,14 +103,22 @@ export default function LearnLessonClient({
 
   const handleLessonComplete = () => {
     if (!user) return;
-    markLessonComplete(user.uid, courseId, lessonId, nextLessonId).catch((e) =>
-      console.warn("[LearnLessonClient] mark-complete failed:", e)
-    );
+    markLessonComplete(user.uid, courseId, lessonId, nextLessonId)
+      .then((res) => setStreak(res.streak))
+      .catch((e) =>
+        console.warn("[LearnLessonClient] mark-complete failed:", e)
+      );
   };
 
   // Wait for the resume position to be known before mounting the player —
   // otherwise the player would briefly render at step 0 then jump.
-  if (initialStepIndex === null) return null;
+  if (initialStepIndex === null) {
+    return (
+      <div className="min-h-screen bg-void-black flex items-center justify-center px-4">
+        <LoadingDots size="lg" label="Picking up where you left off…" />
+      </div>
+    );
+  }
 
   return (
     <CoursePlayer
@@ -112,6 +131,7 @@ export default function LearnLessonClient({
       studentName={studentName}
       nextLessonId={nextLessonId}
       initialStepIndex={initialStepIndex}
+      streak={streak}
       onStepAdvance={handleStepAdvance}
       onLessonComplete={handleLessonComplete}
     />

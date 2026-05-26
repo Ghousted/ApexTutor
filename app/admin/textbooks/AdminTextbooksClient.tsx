@@ -182,8 +182,8 @@ export default function AdminTextbooksClient() {
     <div className="px-6 md:px-10 py-8 max-w-5xl">
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Textbooks</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-canvas-white">Textbooks</h1>
+          <p className="text-sm text-ash-gray mt-1">
             Upload PDFs per instructor. The chat will ground answers in your
             content and cite page numbers.
           </p>
@@ -191,7 +191,7 @@ export default function AdminTextbooksClient() {
         <select
           value={instructorId}
           onChange={(e) => setInstructorId(e.target.value)}
-          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-ink"
+          className="px-3 py-2 bg-coal border border-[var(--border-subtle)] rounded-lg text-sm font-medium text-canvas-white"
         >
           {INSTRUCTORS.map((i) => (
             <option key={i.id} value={i.id}>
@@ -210,24 +210,24 @@ export default function AdminTextbooksClient() {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={cn(
-          "rounded-2xl border-2 border-dashed p-8 text-center transition-colors mb-4",
+          "rounded-[14px] border-2 border-dashed p-8 text-center transition-colors mb-4",
           dragOver
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-white hover:border-slate-300"
+            ? "border-[var(--border-strong)] bg-iron"
+            : "border-[var(--border-subtle)] bg-coal hover:border-slate-300"
         )}
       >
         {phase.kind === "idle" && (
           <>
-            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-lg bg-iron text-canvas-white flex items-center justify-center">
               <Upload className="w-6 h-6" />
             </div>
-            <p className="text-sm font-medium text-ink mb-1">
+            <p className="text-sm font-medium text-canvas-white mb-1">
               Drag &amp; drop a PDF here
             </p>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-ash-gray mb-4">
               Or click to browse · Max 100MB · Text-based PDFs only
             </p>
-            <label className="inline-block px-4 py-2 bg-ink hover:bg-slate-800 text-white text-sm rounded-full cursor-pointer transition-colors">
+            <label className="inline-block px-4 py-2 bg-canvas-white hover:opacity-90 text-void-black text-sm rounded-full cursor-pointer transition-colors">
               Choose file
               <input
                 type="file"
@@ -269,19 +269,19 @@ export default function AdminTextbooksClient() {
 
         {phase.kind === "done" && (
           <div>
-            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-lg bg-canvas-white text-void-black flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <p className="text-sm font-semibold text-ink mb-1">
+            <p className="text-sm font-semibold text-canvas-white mb-1">
               Indexed {phase.chunkCount} chunks across {phase.pageCount} pages
             </p>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-ash-gray mb-4">
               Embedding took {Math.round(phase.embedMs / 100) / 10}s. Your
               instructor can now cite this textbook in chat.
             </p>
             <button
               onClick={() => setPhase({ kind: "idle" })}
-              className="text-xs font-medium text-indigo-600 hover:underline"
+              className="text-xs font-medium text-canvas-white hover:underline"
             >
               Upload another
             </button>
@@ -290,16 +290,16 @@ export default function AdminTextbooksClient() {
 
         {phase.kind === "error" && (
           <div>
-            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-lg bg-iron text-canvas-white flex items-center justify-center">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <p className="text-sm font-semibold text-ink mb-1">Upload failed</p>
-            <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto">
+            <p className="text-sm font-semibold text-canvas-white mb-1">Upload failed</p>
+            <p className="text-xs text-ash-gray mb-4 max-w-md mx-auto">
               {phase.message}
             </p>
             <button
               onClick={() => setPhase({ kind: "idle" })}
-              className="text-xs font-medium text-indigo-600 hover:underline"
+              className="text-xs font-medium text-canvas-white hover:underline"
             >
               Try again
             </button>
@@ -308,32 +308,32 @@ export default function AdminTextbooksClient() {
       </div>
 
       {/* Source list */}
-      <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <header className="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-ink">Indexed textbooks</h2>
+      <section className="bg-coal border border-[var(--border-subtle)] rounded-[14px] overflow-hidden">
+        <header className="px-5 py-3 border-b border-[var(--border-subtle)] flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-ash-gray" />
+          <h2 className="text-sm font-semibold text-canvas-white">Indexed textbooks</h2>
           {loadingList && (
             <Loader2 className="w-3 h-3 ml-auto animate-spin text-slate-300" />
           )}
         </header>
 
         {sources.length === 0 && !loadingList ? (
-          <p className="text-sm text-slate-400 text-center py-8">
+          <p className="text-sm text-ash-gray text-center py-8">
             No textbooks indexed yet for this instructor.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-[var(--border-subtle)]">
             {sources.map((s) => (
               <li
                 key={s.id}
-                className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50"
+                className="px-5 py-3 flex items-center gap-3 hover:bg-coal"
               >
-                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <FileText className="w-4 h-4 text-ash-gray shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">
+                  <p className="text-sm font-medium text-canvas-white truncate">
                     {s.filename}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-ash-gray">
                     {s.totalChunks} chunks · {s.totalPages} pages ·{" "}
                     {new Date(s.uploadedAt).toLocaleDateString()} ·{" "}
                     <StatusBadge status={s.status} />
@@ -341,7 +341,7 @@ export default function AdminTextbooksClient() {
                 </div>
                 <button
                   onClick={() => handleDelete(s.id, s.filename)}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  className="p-2 text-ash-gray hover:text-canvas-white hover:bg-coal rounded-lg transition-colors"
                   aria-label="Delete"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -366,15 +366,15 @@ function PhaseStatus({
 }) {
   return (
     <div>
-      <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+      <div className="w-12 h-12 mx-auto mb-4 rounded-lg bg-iron text-canvas-white flex items-center justify-center">
         {spinner ? (
           <Loader2 className="w-6 h-6 animate-spin" />
         ) : (
           <Upload className="w-6 h-6" />
         )}
       </div>
-      <p className="text-sm font-semibold text-ink mb-1">{title}</p>
-      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+      <p className="text-sm font-semibold text-canvas-white mb-1">{title}</p>
+      <p className="text-xs text-ash-gray max-w-md mx-auto leading-relaxed">
         {subtitle}
       </p>
     </div>
@@ -382,8 +382,8 @@ function PhaseStatus({
 }
 
 function StatusBadge({ status }: { status: Source["status"] }) {
-  if (status === "ready") return <span className="text-emerald-600">ready</span>;
+  if (status === "ready") return <span className="text-canvas-white">ready</span>;
   if (status === "processing")
     return <span className="text-amber-600">processing</span>;
-  return <span className="text-rose-600">failed</span>;
+  return <span className="text-canvas-white">failed</span>;
 }

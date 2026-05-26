@@ -76,13 +76,13 @@ export default function BillingSuccessClient() {
 function WaitingUI() {
   return (
     <>
-      <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-indigo-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-iron flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-canvas-white animate-spin" />
       </div>
-      <h1 className="text-2xl md:text-3xl font-bold text-ink mb-3">
+      <h1 className="text-2xl md:text-3xl font-bold text-canvas-white mb-3">
         Confirming your payment...
       </h1>
-      <p className="text-slate-600 leading-relaxed">
+      <p className="text-ash-gray leading-relaxed">
         This usually takes a few seconds. We&apos;re finishing setup with PayMongo
         and unlocking your account.
       </p>
@@ -96,21 +96,21 @@ function SlowUI() {
       <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-amber-100 flex items-center justify-center">
         <Clock className="w-8 h-8 text-amber-600" />
       </div>
-      <h1 className="text-2xl md:text-3xl font-bold text-ink mb-3">
+      <h1 className="text-2xl md:text-3xl font-bold text-canvas-white mb-3">
         Still processing
       </h1>
-      <p className="text-slate-600 mb-6 leading-relaxed">
+      <p className="text-ash-gray mb-6 leading-relaxed">
         Your payment is going through but we haven&apos;t received the
         confirmation yet. This sometimes takes up to a minute. Check your email
         for the receipt — if it arrived, your account will unlock shortly.
       </p>
       <button
         onClick={() => window.location.reload()}
-        className="inline-flex items-center justify-center px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-medium text-sm transition-colors"
+        className="inline-flex items-center justify-center px-6 py-3 bg-canvas-white hover:opacity-90 text-void-black rounded-full font-medium text-sm transition-colors"
       >
         Check again
       </button>
-      <p className="text-xs text-slate-400 mt-6">
+      <p className="text-xs text-ash-gray mt-6">
         Still stuck after a few minutes? Email support — we&apos;ll fix it
         manually and won&apos;t charge you twice.
       </p>
@@ -135,17 +135,17 @@ function ActiveUI({
 
   return (
     <>
-      <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-emerald-500 flex items-center justify-center">
-        <Check className="w-8 h-8 text-white" strokeWidth={3} />
+      <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-canvas-white flex items-center justify-center">
+        <Check className="w-8 h-8 text-canvas-white" strokeWidth={3} />
       </div>
-      <h1 className="text-2xl md:text-3xl font-bold text-ink mb-3">
+      <h1 className="text-2xl md:text-3xl font-bold text-canvas-white mb-3">
         Payment received — you&apos;re in.
       </h1>
-      <p className="text-slate-600 mb-2 leading-relaxed">
+      <p className="text-ash-gray mb-2 leading-relaxed">
         Your {plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : ""}{" "}
         subscription is active.
       </p>
-      <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+      <p className="text-sm text-ash-gray mb-8 leading-relaxed">
         All courses, image uploads, and unlimited questions are unlocked.
         {renewsOn && (
           <>
@@ -156,11 +156,11 @@ function ActiveUI({
       </p>
       <Link
         href="/courses"
-        className="inline-flex items-center justify-center px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-medium text-sm transition-colors"
+        className="inline-flex items-center justify-center px-6 py-3 bg-canvas-white hover:opacity-90 text-void-black rounded-full font-medium text-sm transition-colors"
       >
         Start a lesson
       </Link>
-      <p className="text-xs text-slate-400 mt-6">
+      <p className="text-xs text-ash-gray mt-6">
         A receipt has been sent to your email.
       </p>
     </>

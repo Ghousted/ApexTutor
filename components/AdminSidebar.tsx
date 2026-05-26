@@ -37,10 +37,10 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
-      <div className="px-5 py-5 border-b border-slate-100">
+    <aside className="w-64 shrink-0 bg-void-black border-r border-[var(--border-subtle)] flex flex-col h-screen sticky top-0">
+      <div className="px-5 py-5 border-b border-[var(--border-subtle)]">
         <Logo size="md" />
-        <p className="text-[10px] uppercase tracking-wider text-slate-400 mt-2 font-semibold">
+        <p className="text-[10px] uppercase tracking-wider text-ash-gray mt-2 font-semibold">
           Admin
         </p>
       </div>
@@ -58,8 +58,8 @@ export default function AdminSidebar() {
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 active
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-iron text-canvas-white border border-[var(--border-strong)]"
+                  : "text-ash-gray hover:bg-coal hover:text-canvas-white"
               )}
             >
               <Icon className="w-4 h-4" />
@@ -69,17 +69,17 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-slate-100 flex flex-col gap-1">
+      <div className="p-3 border-t border-[var(--border-subtle)] flex flex-col gap-1">
         <Link
           href="/"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ash-gray hover:bg-coal hover:text-canvas-white"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to app
         </Link>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 text-left"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ash-gray hover:bg-coal hover:text-canvas-white text-left"
         >
           <LogOut className="w-4 h-4" />
           Sign out

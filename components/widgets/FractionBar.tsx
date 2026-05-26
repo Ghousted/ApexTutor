@@ -84,19 +84,19 @@ export default function FractionBar({
   };
 
   return (
-    <div ref={cardRef} className="bg-white rounded-2xl border border-slate-200 p-5">
-      <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider mb-2">
+    <div ref={cardRef} className="bg-coal rounded-[14px] border border-[var(--border-subtle)] p-4 sm:p-5">
+      <p className="text-[10px] font-semibold text-canvas-white uppercase tracking-wider mb-2">
         Visual practice
       </p>
-      <p className="text-base font-medium text-ink mb-4">
+      <p className="text-base font-medium text-canvas-white mb-4">
         Make{" "}
-        <span className="font-bold text-indigo-600">
+        <span className="font-bold text-canvas-white">
           {num}/{denom}
         </span>{" "}
         by clicking cells.
       </p>
 
-      <div className="flex w-full rounded-xl overflow-hidden border-2 border-slate-200 mb-4">
+      <div className="flex w-full rounded-lg overflow-hidden border-2 border-[var(--border-subtle)] mb-4">
         {filled.map((isFilled, i) => (
           <button
             key={i}
@@ -107,21 +107,21 @@ export default function FractionBar({
             disabled={submitted}
             aria-label={`Cell ${i + 1}`}
             className={cn(
-              "flex-1 h-16 transition-colors border-r border-slate-200 last:border-r-0",
+              "flex-1 h-16 transition-colors border-r border-[var(--border-subtle)] last:border-r-0",
               isFilled
-                ? "bg-indigo-500"
-                : "bg-white hover:bg-indigo-50 cursor-pointer",
+                ? "bg-canvas-white"
+                : "bg-coal hover:bg-iron cursor-pointer",
               submitted && !isCorrect && isFilled && "bg-rose-400",
-              submitted && isCorrect && "bg-emerald-500"
+              submitted && isCorrect && "bg-canvas-white"
             )}
           />
         ))}
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ash-gray">
           Filled:{" "}
-          <span className="font-semibold text-ink">
+          <span className="font-semibold text-canvas-white">
             {filledCount}/{denom}
           </span>
         </p>
@@ -132,9 +132,9 @@ export default function FractionBar({
             "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
             submitted
               ? isCorrect
-                ? "bg-emerald-500 text-white"
-                : "bg-rose-500 text-white"
-              : "bg-ink hover:bg-slate-800 text-white disabled:bg-slate-200 disabled:text-slate-400"
+                ? "bg-canvas-white text-void-black"
+                : "bg-canvas-white text-void-black"
+              : "bg-canvas-white hover:opacity-90 text-void-black disabled:bg-iron disabled:text-ash-gray"
           )}
         >
           {submitted ? (

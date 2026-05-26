@@ -91,15 +91,15 @@ export default function AdminCoursesClient() {
     <div className="px-6 md:px-10 py-8 max-w-5xl">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Courses</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-canvas-white">Courses</h1>
+          <p className="text-sm text-ash-gray mt-1">
             Each course is a linear, interactive lesson sequence taught by one assigned instructor.
           </p>
         </div>
         <button
           onClick={createCourse}
           disabled={creating}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-ink hover:bg-slate-800 disabled:opacity-70 text-white rounded-full text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-canvas-white hover:opacity-90 disabled:opacity-70 text-void-black rounded-full text-sm font-medium transition-colors"
         >
           {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
           New course
@@ -107,20 +107,20 @@ export default function AdminCoursesClient() {
       </header>
 
       {error && (
-        <p className="mb-4 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+        <p className="mb-4 text-sm text-canvas-white bg-coal border border-[var(--border-subtle)] rounded-lg px-3 py-2">
           {error}
         </p>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-ash-gray">
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
       ) : courses.length === 0 ? (
-        <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-10 text-center">
+        <div className="bg-coal border border-dashed border-[var(--border-subtle)] rounded-[14px] p-10 text-center">
           <Library className="w-8 h-8 mx-auto text-slate-300 mb-3" />
-          <p className="text-sm text-slate-500 mb-1">No courses yet</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-ash-gray mb-1">No courses yet</p>
+          <p className="text-xs text-ash-gray">
             Click <strong>New course</strong> to author your first one.
           </p>
         </div>
@@ -131,36 +131,36 @@ export default function AdminCoursesClient() {
             return (
               <li
                 key={c.id}
-                className="group bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-md transition-shadow"
+                className="group bg-coal border border-[var(--border-subtle)] rounded-[14px] p-4 hover:shadow-md transition-shadow"
               >
                 <Link href={`/admin/courses/${c.id}`} className="flex items-center gap-4">
                   {/* Status + subject sigil */}
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
+                    className="w-12 h-12 rounded-lg flex items-center justify-center text-canvas-white text-sm font-bold shrink-0"
                     style={{ background: inst?.accentColor || "#94a3b8" }}
                   >
                     {inst?.avatarInitial ?? c.subject?.[0]?.toUpperCase() ?? "?"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <h2 className="font-semibold text-ink truncate">
+                      <h2 className="font-semibold text-canvas-white truncate">
                         {c.title || "Untitled"}
                       </h2>
                       <StatusBadge status={c.status} />
                       {c.freeTier && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-canvas-white bg-canvas-white px-1.5 py-0.5 rounded">
                           Free
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-xs text-ash-gray truncate">
                       {c.subject || "No subject"}
                       {inst && <> · Taught by {inst.shortName}</>}
                       {" · "}
                       {c.lessonCount} lesson{c.lessonCount === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <Pencil className="w-4 h-4 text-slate-300 group-hover:text-slate-600 shrink-0" />
+                  <Pencil className="w-4 h-4 text-slate-300 group-hover:text-ash-gray shrink-0" />
                 </Link>
               </li>
             );
@@ -177,8 +177,8 @@ function StatusBadge({ status }: { status: "draft" | "published" }) {
       className={cn(
         "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded",
         status === "published"
-          ? "text-indigo-700 bg-indigo-100"
-          : "text-slate-500 bg-slate-100"
+          ? "text-canvas-white bg-iron"
+          : "text-ash-gray bg-iron"
       )}
     >
       {status}

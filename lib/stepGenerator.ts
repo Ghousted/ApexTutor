@@ -9,9 +9,9 @@ import type { Step } from "./courses";
 
 const MODEL = "llama-3.1-8b-instant";
 
-const SYSTEM = `You are a senior curriculum designer. Rewrite ONE step of a lesson for Filipino students.
+const SYSTEM = `You are a senior curriculum designer. Rewrite ONE step of a lesson.
 
-LANGUAGE: English only. Filipino-relatable examples (peso, jeepney, palengke, mango) are encouraged, but expressed in English.
+LANGUAGE: English only. Use universally relatable examples (sports, food, money, weather, games) so the step works for any English-speaking student. Avoid culture-specific references.
 
 You will be told the step's type and the surrounding lesson context (title, objective, subject, grade band, and a summary of neighbouring steps). Produce one fresh step of that type — different wording / different example than before so the student gets a useful re-roll.
 

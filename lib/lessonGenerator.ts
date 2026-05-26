@@ -10,9 +10,9 @@ import type { Step } from "./courses";
 
 const MODEL = "llama-3.1-8b-instant";
 
-const SYSTEM = `You are a senior curriculum designer. Given a topic, grade band, and subject, produce a 5-7 step interactive lesson skeleton for Filipino students.
+const SYSTEM = `You are a senior curriculum designer. Given a topic, grade band, and subject, produce a 5-7 step interactive lesson skeleton.
 
-LANGUAGE: All script text, questions, options, prompts, and items must be written in clear English. Do NOT use Tagalog, Taglish, or any non-English text. Use natural English phrasing throughout. Filipino-relatable examples and references (peso, jeepney, palengke, basketball, mango) are encouraged as long as they're expressed in English (e.g., "5 mangoes cost ₱30", not "₱30 ang halaga ng 5 mangga").
+LANGUAGE: All script text, questions, options, prompts, and items must be written in clear English. Use natural English phrasing throughout. Anchor abstract ideas in everyday situations that work for any English-speaking learner (sports scores, grocery prices, video games, weather, cooking, pocket money). Avoid culture-specific references that would alienate students from any region.
 
 Each step is one atomic interaction. Mix the types — don't fire 4 quizzes in a row. End with a checkpoint.
 
@@ -37,7 +37,7 @@ Rules:
 - 5 to 7 steps total. Always start with intro and end with checkpoint.
 - Include 2-3 INTERACTIVE steps (quiz/fraction-bar/match-pairs/sort-sequence). Not more.
 - Scripts are 1-2 short sentences in plain English. Direct and warm.
-- Use Filipino-relatable examples where natural (jeepney, palengke, basketball, mango, halo-halo) — but expressed entirely in English.
+- Use universally relatable examples (sports, food, money, weather, games, animals) so the lesson works for any English-speaking student.
 - Quiz options: 3-4 entries with one correct. Set correctKey to that option's key.
 - Fraction-bar target: simple like "3/4", "2/5", "5/8".
 - Match-pairs: 3-4 pairs.

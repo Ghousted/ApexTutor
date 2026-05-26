@@ -132,7 +132,7 @@ export default function OnboardingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-7">
+      <div className="relative bg-coal rounded-[14px] shadow-2xl w-full max-w-md p-7">
         {/* Voice indicator — pulses while the welcome message is being read
             aloud. Click to silence it. */}
         <button
@@ -142,7 +142,7 @@ export default function OnboardingModal({
           className={cn(
             "absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-colors",
             voicePlaying
-              ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200 cursor-pointer"
+              ? "bg-iron text-canvas-white hover:bg-iron cursor-pointer"
               : "text-slate-300 cursor-default"
           )}
           aria-label={voicePlaying ? "Stop voice" : "Voice idle"}
@@ -151,32 +151,32 @@ export default function OnboardingModal({
           {voicePlaying ? (
             <>
               <Volume2 className="w-4 h-4" />
-              <span className="absolute inset-0 rounded-full ring-2 ring-indigo-400 animate-ping opacity-60" />
+              <span className="absolute inset-0 rounded-full ring-2 ring-canvas-white animate-ping opacity-60" />
             </>
           ) : (
             <VolumeX className="w-4 h-4" />
           )}
         </button>
 
-        <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600">
+        <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-[14px] bg-iron text-canvas-white">
           <Sparkles className="w-6 h-6" />
         </div>
 
-        <h2 className="text-xl font-bold text-ink text-center mb-1">
+        <h2 className="text-xl font-bold text-canvas-white text-center mb-1">
           {parentName ? `Welcome, ${parentName.split(" ")[0]}!` : "Welcome!"}
         </h2>
-        <p className="text-sm text-slate-500 text-center mb-6 leading-relaxed">
+        <p className="text-sm text-ash-gray text-center mb-6 leading-relaxed">
           Let&apos;s set up your child&apos;s tutor. This takes 30 seconds.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* Student first name */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-ash-gray uppercase tracking-wider mb-2">
               Your child&apos;s first name
             </label>
-            <div className="flex items-center gap-2.5 px-3 py-2.5 border border-slate-200 rounded-xl bg-white focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
-              <UserIcon className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2.5 px-3 py-2.5 border border-[var(--border-subtle)] rounded-lg bg-coal focus-within:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-canvas-white transition-all">
+              <UserIcon className="w-4 h-4 text-ash-gray" />
               <input
                 type="text"
                 placeholder="e.g., Liam"
@@ -184,14 +184,14 @@ export default function OnboardingModal({
                 onChange={(e) => setStudentName(e.target.value)}
                 disabled={submitting}
                 autoFocus
-                className="flex-1 bg-transparent text-sm text-ink placeholder-slate-400 outline-none"
+                className="flex-1 bg-transparent text-sm text-canvas-white placeholder-ash-gray outline-none"
               />
             </div>
           </div>
 
           {/* Student age */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <label className="block text-xs font-semibold text-ash-gray uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Cake className="w-3.5 h-3.5" /> How old are they?
             </label>
             <div className="grid grid-cols-5 gap-1.5">
@@ -204,21 +204,21 @@ export default function OnboardingModal({
                   className={cn(
                     "py-2.5 rounded-lg text-sm font-medium transition-all border",
                     studentAge === age
-                      ? "bg-indigo-500 text-white border-indigo-500 shadow"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                      ? "bg-canvas-white text-void-black border-[var(--border-strong)] shadow"
+                      : "bg-coal text-canvas-white/90 border-[var(--border-subtle)] hover:border-[var(--border-strong)]"
                   )}
                 >
                   {age}
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-slate-400 mt-2">
+            <p className="text-[11px] text-ash-gray mt-2">
               We&apos;ll match the lessons to their grade level automatically.
             </p>
           </div>
 
           {error && (
-            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-canvas-white bg-coal border border-[var(--border-subtle)] rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -227,8 +227,8 @@ export default function OnboardingModal({
             type="submit"
             disabled={submitting}
             className={cn(
-              "w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all",
-              "bg-ink hover:bg-slate-800 text-white",
+              "w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-medium text-sm transition-all",
+              "bg-canvas-white hover:opacity-90 text-void-black",
               submitting && "opacity-70 cursor-wait"
             )}
           >

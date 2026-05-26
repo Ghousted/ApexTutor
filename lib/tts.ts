@@ -111,6 +111,29 @@ async function loadMmsPipeline(model: string): Promise<MmsPipeLike> {
   return pipe;
 }
 
+/**
+ * Warm up the Kokoro model without producing audio. Call as early as
+ * possible (e.g., from the course-detail page or LearnLessonClient on
+ * mount) so the ~100MB download overlaps with normal page loading instead
+ * of blocking the first step's voice playback. Safe to call repeatedly —
+ * the load promise is cached.
+ */
+export async function prefetchVoice(): Promise<void> {
+  try {
+    await loadKokoro();
+  } catch (e) {
+    // Network or WebGPU init can fail on slow connections / older browsers.
+    // We swallow here because prefetch is fire-and-forget; real playback
+    // calls will surface the error if it persists.
+    console.warn("[TTS] prefetchVoice failed:", e);
+  }
+}
+
+/** Returns true once the Kokoro model is loaded and ready to synthesize. */
+export function isVoiceReady(): boolean {
+  return kokoroInstance !== null;
+}
+
 /** Synthesize text to PCM audio (non-streaming). Throws on failure. */
 export async function synthesize(
   text: string,

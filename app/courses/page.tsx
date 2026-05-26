@@ -27,24 +27,14 @@ export default async function CoursesCatalogPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#fde6d3] via-[#fdeede] to-white">
-      <header className="px-6 md:px-10 py-5 flex items-center justify-between gap-3">
+    <main className="min-h-screen bg-void-black">
+      <header className="px-6 md:px-10 py-5 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)]">
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <Logo size="md" />
         </Link>
       </header>
 
-      <section className="max-w-5xl mx-auto px-6 py-10 md:py-12">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-ink mb-3">
-            Courses
-          </h1>
-          <p className="text-slate-500 text-sm md:text-base max-w-xl mx-auto">
-            Each course is a linear, hands-on sequence taught by one of our
-            tutors. Pick one to start learning.
-          </p>
-        </div>
-
+      <section className="max-w-5xl mx-auto px-6 py-10 md:py-14">
         <CoursesCatalogClient courses={catalog} />
       </section>
     </main>

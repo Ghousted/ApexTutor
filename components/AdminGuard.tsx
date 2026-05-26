@@ -45,8 +45,8 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   // protected content.
   if (!authResolved || !user || !isAdmin(user.uid)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="min-h-screen flex items-center justify-center bg-coal">
+        <Loader2 className="w-6 h-6 animate-spin text-ash-gray" />
       </div>
     );
   }

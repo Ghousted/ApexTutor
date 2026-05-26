@@ -135,11 +135,11 @@ export default function SortSequence({
   };
 
   return (
-    <div ref={cardRef} className="bg-white rounded-2xl border border-slate-200 p-5">
-      <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider mb-2">
+    <div ref={cardRef} className="bg-coal rounded-[14px] border border-[var(--border-subtle)] p-4 sm:p-5">
+      <p className="text-[10px] font-semibold text-canvas-white uppercase tracking-wider mb-2">
         Put in order
       </p>
-      <p className="text-base font-medium text-ink mb-4">
+      <p className="text-base font-medium text-canvas-white mb-4">
         {widget.prompt ||
           "Drag the rows up or down so they appear in the correct order, top to bottom."}
       </p>
@@ -166,7 +166,7 @@ export default function SortSequence({
       </DndContext>
 
       <div className="flex items-center justify-between mt-4">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ash-gray">
           {submitted
             ? `${correctCount} of ${items.length} in place`
             : "Drag rows to reorder, then check."}
@@ -178,9 +178,9 @@ export default function SortSequence({
             "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
             submitted
               ? allCorrect
-                ? "bg-emerald-500 text-white"
-                : "bg-rose-500 text-white"
-              : "bg-ink hover:bg-slate-800 text-white"
+                ? "bg-canvas-white text-void-black"
+                : "bg-canvas-white text-void-black"
+              : "bg-canvas-white hover:opacity-90 text-void-black"
           )}
         >
           {submitted ? (
@@ -234,27 +234,27 @@ function SortableRow({
         transition,
       }}
       className={cn(
-        "flex items-center gap-3 px-3 py-3 rounded-xl border-2 bg-white text-sm font-medium text-ink",
-        !submitted && "border-slate-200",
+        "flex items-center gap-3 px-3 py-3 rounded-lg border-2 bg-coal text-sm font-medium text-canvas-white",
+        !submitted && "border-[var(--border-subtle)]",
         submitted && isCorrect && "border-emerald-400",
         submitted && isWrong && "border-rose-400",
-        isDragging && "shadow-lg ring-2 ring-indigo-300 z-10"
+        isDragging && "shadow-lg ring-2 ring-canvas-white z-10"
       )}
     >
       <button
         {...attributes}
         {...listeners}
         disabled={submitted}
-        className="p-1 text-slate-400 hover:text-ink cursor-grab disabled:cursor-not-allowed"
+        className="p-1 text-ash-gray hover:text-canvas-white cursor-grab disabled:cursor-not-allowed"
         aria-label="Drag to reorder"
       >
         <GripVertical className="w-4 h-4" />
       </button>
       <span
         className={cn(
-          "w-6 h-6 rounded-full bg-slate-100 text-xs font-bold flex items-center justify-center shrink-0",
-          submitted && isCorrect && "bg-emerald-500 text-white",
-          submitted && isWrong && "bg-rose-100 text-rose-700"
+          "w-6 h-6 rounded-full bg-iron text-xs font-bold flex items-center justify-center shrink-0",
+          submitted && isCorrect && "bg-canvas-white text-void-black",
+          submitted && isWrong && "bg-iron text-canvas-white"
         )}
       >
         {index + 1}

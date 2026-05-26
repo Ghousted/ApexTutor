@@ -2,31 +2,45 @@ import { cn } from "@/lib/utils";
 
 export default function Logo({
   className,
-  showText = true,
   size = "md",
 }: {
   className?: string;
+  /** Kept for backward compatibility; ignored — the logo is now wordmark-only. */
   showText?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
-    sm: { orb: "w-6 h-6", text: "text-sm" },
-    md: { orb: "w-8 h-8", text: "text-base" },
-    lg: { orb: "w-10 h-10", text: "text-lg" },
+    sm: "text-lg tracking-[0.18em]",
+    md: "text-2xl tracking-[0.18em]",
+    lg: "text-4xl md:text-5xl tracking-[0.2em]",
   } as const;
 
+  // Larger sizes get the AI-shimmer treatment so the wordmark feels alive;
+  // the small variant stays plain so it doesn't compete in dense headers.
+  const useShimmer = size === "lg";
+
   return (
-    <div className={cn("flex items-center gap-2.5", className)}>
-      <div className={cn("relative rounded-full overflow-hidden shadow-sm", sizes[size].orb)}>
-        <div className="orb-logo absolute inset-0 rounded-full" />
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 to-transparent" />
-        <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-white/80 blur-[1px]" />
-      </div>
-      {showText && (
-        <span className={cn("font-bold tracking-wider text-ink", sizes[size].text)}>
-          APEX TUTOR
-        </span>
+    <div className={cn("relative inline-flex items-center", className)}>
+      {/* Soft halo glow behind the wordmark — only on the display size. */}
+      {useShimmer && (
+        <span
+          aria-hidden
+          className="absolute inset-0 -z-10 blur-2xl opacity-40"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(255,255,255,0.55) 0%, transparent 70%)",
+          }}
+        />
       )}
+      <span
+        className={cn(
+          "font-bold",
+          useShimmer ? "text-shimmer" : "text-canvas-white",
+          sizes[size]
+        )}
+      >
+        APEX TUTOR
+      </span>
     </div>
   );
 }

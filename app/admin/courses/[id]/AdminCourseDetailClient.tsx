@@ -148,7 +148,7 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400">
+      <div className="flex items-center justify-center py-20 text-ash-gray">
         <Loader2 className="w-5 h-5 animate-spin" />
       </div>
     );
@@ -156,8 +156,8 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
   if (!course) {
     return (
       <div className="p-8">
-        <p className="text-sm text-rose-600">{error || "Course not found"}</p>
-        <Link href="/admin/courses" className="text-sm text-indigo-600 underline mt-2 inline-block">
+        <p className="text-sm text-canvas-white">{error || "Course not found"}</p>
+        <Link href="/admin/courses" className="text-sm text-canvas-white underline mt-2 inline-block">
           ← Back to courses
         </Link>
       </div>
@@ -168,7 +168,7 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
     <div className="px-6 md:px-10 py-8 max-w-4xl">
       <Link
         href="/admin/courses"
-        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-ink mb-3"
+        className="inline-flex items-center gap-1 text-xs text-ash-gray hover:text-canvas-white mb-3"
       >
         <ArrowLeft className="w-3 h-3" /> All courses
       </Link>
@@ -179,9 +179,9 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
             value={course.title}
             onChange={(e) => saveCourse({ title: e.target.value })}
             placeholder="Course title"
-            className="w-full text-2xl font-bold text-ink bg-transparent outline-none border-b border-transparent focus:border-slate-200"
+            className="w-full text-2xl font-bold text-canvas-white bg-transparent outline-none border-b border-transparent focus:border-[var(--border-subtle)]"
           />
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ash-gray mt-1">
             {saving ? "Saving…" : savedAt ? `Saved ${savedAt.toLocaleTimeString()}` : "Edit any field to autosave"}
           </p>
         </div>
@@ -195,8 +195,8 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-medium",
               course.status === "published"
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-slate-100 text-slate-600"
+                ? "bg-canvas-white text-void-black"
+                : "bg-iron text-ash-gray"
             )}
           >
             {course.status === "published" ? "Published" : "Draft"} ·
@@ -204,7 +204,7 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
           </button>
           <button
             onClick={deleteCourse}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md"
+            className="p-1.5 text-ash-gray hover:text-canvas-white hover:bg-coal rounded-md"
             aria-label="Delete course"
           >
             <Trash2 className="w-4 h-4" />
@@ -213,14 +213,14 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
       </header>
 
       {error && (
-        <p className="mb-4 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+        <p className="mb-4 text-sm text-canvas-white bg-coal border border-[var(--border-subtle)] rounded-lg px-3 py-2">
           {error}
         </p>
       )}
 
       {/* Course metadata */}
-      <section className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-        <h2 className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-3">
+      <section className="bg-coal rounded-[14px] border border-[var(--border-subtle)] p-5 mb-6">
+        <h2 className="text-xs uppercase tracking-wider font-semibold text-ash-gray mb-3">
           Course details
         </h2>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -266,7 +266,7 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
           </LabeledField>
 
           <LabeledField label="Free tier?">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-ash-gray">
               <input
                 type="checkbox"
                 checked={course.freeTier}
@@ -279,15 +279,15 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
       </section>
 
       {/* Lessons */}
-      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <header className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+      <section className="bg-coal rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">
+        <header className="px-5 py-3 border-b border-[var(--border-subtle)] flex items-center justify-between">
+          <h2 className="text-xs uppercase tracking-wider font-semibold text-ash-gray">
             Lessons ({lessons.length})
           </h2>
           <button
             onClick={createLesson}
             disabled={creatingLesson}
-            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-70 text-white rounded-full text-xs font-medium"
+            className="inline-flex items-center gap-1 px-3 py-1.5 bg-canvas-white hover:opacity-90 disabled:opacity-70 text-void-black rounded-full text-xs font-medium"
           >
             {creatingLesson ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -299,26 +299,26 @@ export default function AdminCourseDetailClient({ courseId }: { courseId: string
         </header>
 
         {lessons.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-8 px-4">
+          <p className="text-sm text-ash-gray text-center py-8 px-4">
             No lessons yet. Click <strong>New lesson</strong> to author the first one
             — you&apos;ll be able to draft steps manually or have AI generate them.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-[var(--border-subtle)]">
             {lessons.map((l, i) => (
               <li key={l.id}>
                 <Link
                   href={`/admin/courses/${courseId}/lessons/${l.id}`}
-                  className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+                  className="px-5 py-3 flex items-center gap-3 hover:bg-coal transition-colors"
                 >
-                  <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-iron text-ash-gray text-xs font-semibold flex items-center justify-center shrink-0">
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink truncate">
+                    <p className="text-sm font-medium text-canvas-white truncate">
                       {l.title}
                     </p>
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-xs text-ash-gray truncate">
                       {l.objective || "No objective yet"} ·{" "}
                       {(l.steps?.length ?? 0)} step{(l.steps?.length ?? 0) === 1 ? "" : "s"}
                     </p>
@@ -362,7 +362,7 @@ function LabeledField({
 }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
-      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      <label className="block text-[10px] font-semibold text-ash-gray uppercase tracking-wider mb-1">
         {label}
       </label>
       {children}
@@ -414,7 +414,7 @@ function GradeRangePicker({
             </option>
           ))}
         </select>
-        <span className="text-slate-400 text-sm">to</span>
+        <span className="text-ash-gray text-sm">to</span>
         <select
           value={max}
           onChange={(e) => setMax(Number(e.target.value))}
@@ -428,8 +428,8 @@ function GradeRangePicker({
           ))}
         </select>
       </div>
-      <p className="mt-1.5 text-[11px] text-slate-500">
-        Preview: <span className="font-medium text-slate-700">{label}</span>
+      <p className="mt-1.5 text-[11px] text-ash-gray">
+        Preview: <span className="font-medium text-canvas-white/90">{label}</span>
       </p>
     </div>
   );
